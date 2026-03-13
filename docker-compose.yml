@@ -24,6 +24,32 @@ services:
       timeout: 5s
       retries: 5
 
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.1
+    container_name: cartones_keycloak
+    command: start-dev --import-realm
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USER:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD requerido}
+      KC_HTTP_PORT: 8080
+      KC_HTTP_ENABLED: "true"
+      KC_HEALTH_ENABLED: "true"
+      # KC_HOSTNAME define el valor del claim 'iss' en los tokens JWT
+      KC_HOSTNAME: localhost
+      KC_HOSTNAME_PORT: ${PORT_KEYCLOAK:-8080}
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_BACKCHANNEL: "false"
+    volumes:
+      - ./keycloak/realm-cartones.json:/opt/keycloak/data/import/realm-cartones.json:ro
+    ports:
+      - "127.0.0.1:${PORT_KEYCLOAK:-8080}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9000/health/ready || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 60s
+
   backend:
     build:
       context: .
@@ -43,10 +69,16 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB}
       SPRING_CONFIG_IMPORT: "configtree:/run/secrets/"
 
+      # Keycloak: issuer-uri usa localhost (iss del JWT), jwk-set-uri usa hostname interno Docker
+      KEYCLOAK_ISSUER_URI: http://localhost:${PORT_KEYCLOAK:-8080}/realms/cartones
+      KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/cartones/protocol/openid-connect/certs
+
     ports:
       - "${PORT_BACKEND}:9001"
     depends_on:
       db:
+        condition: service_healthy
+      keycloak:
         condition: service_healthy
     secrets:
       - source: db_user

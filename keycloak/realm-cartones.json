@@ -1,0 +1,58 @@
+{
+  "realm": "cartones",
+  "enabled": true,
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "roles": {
+    "realm": [
+      { "name": "ADMIN",       "description": "Acceso total: operaciones de negocio, panel de administración y métricas" },
+      { "name": "DISTRIBUIDOR","description": "Acceso a operaciones de negocio del día a día" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "frontend",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+      "redirectUris": [
+        "http://localhost:3000/*",
+        "https://rgq-web.vercel.app/*"
+      ],
+      "webOrigins": [
+        "http://localhost:3000",
+        "https://rgq-web.vercel.app"
+      ],
+      "defaultClientScopes": ["openid", "profile", "email", "roles"],
+      "optionalClientScopes": ["address", "phone"]
+    }
+  ],
+  "users": [
+    {
+      "username": "admin",
+      "enabled": true,
+      "email": "admin@cartones.local",
+      "firstName": "Admin",
+      "lastName": "Sistema",
+      "credentials": [
+        { "type": "password", "value": "admin123", "temporary": true }
+      ],
+      "realmRoles": ["ADMIN"]
+    },
+    {
+      "username": "distribuidor",
+      "enabled": true,
+      "email": "distribuidor@cartones.local",
+      "firstName": "Distribuidor",
+      "lastName": "Demo",
+      "credentials": [
+        { "type": "password", "value": "distribuidor123", "temporary": true }
+      ],
+      "realmRoles": ["DISTRIBUIDOR"]
+    }
+  ]
+}

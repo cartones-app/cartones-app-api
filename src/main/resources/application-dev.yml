@@ -14,6 +14,16 @@ spring:
       cache:
         period: 0  # Desactivar cache web
 
+  # Keycloak como Authorization Server
+  # issuer-uri: URL pública del realm (usada para validar el claim 'iss' del JWT)
+  # jwk-set-uri: URL interna (usada por el backend para obtener las claves públicas)
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8080/realms/cartones}
+          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://localhost:8080/realms/cartones/protocol/openid-connect/certs}
+
 server:
   error:
     include-message: always

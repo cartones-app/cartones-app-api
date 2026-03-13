@@ -51,14 +51,6 @@ app:
   cors:
     origins: ${APP_CORS_ORIGINS:http://localhost:3000}
 
-  # Configuración de Seguridad JWT
-  security:
-    jwt:
-      # Secreto para firmar tokens
-      secret-key: ${JWT_SECRET_KEY:una-clave-secreta-muy-larga-de-al-menos-32-caracteres-para-firmar-tokens-jwt}
-      # Tiempo de expiración del token en milisegundos (86400000 = 24 horas)
-      expiration-ms: ${JWT_EXPIRATION_MS:86400000}
-
 # Configuración de Logging
 logging:
   level:
