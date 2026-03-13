@@ -3,7 +3,7 @@ package com.eliasgonzalez.cartones.pdf.mapper;
 import com.eliasgonzalez.cartones.pdf.dto.EtiquetaDTO;
 import com.eliasgonzalez.cartones.pdf.dto.ResumenDTO;
 import com.eliasgonzalez.cartones.pdf.dto.VendedorSimuladoDTO;
-import com.eliasgonzalez.cartones.vendedor.entity.ProcesoDistribucionVendedor;
+import com.eliasgonzalez.cartones.vendedor.domain.ProcesoDistribucionVendedor;
 
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;

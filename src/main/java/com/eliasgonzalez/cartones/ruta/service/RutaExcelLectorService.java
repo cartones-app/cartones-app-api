@@ -10,7 +10,7 @@ import com.eliasgonzalez.cartones.common.exception.ExcelProcessingException;
 import com.eliasgonzalez.cartones.common.exception.ResourceNotFoundException;
 import com.eliasgonzalez.cartones.common.util.ExcelUtil;
 import com.eliasgonzalez.cartones.common.util.TextoUtil;
-import com.eliasgonzalez.cartones.vendedor.entity.Vendedor;
+import com.eliasgonzalez.cartones.vendedor.domain.Vendedor;
 import com.eliasgonzalez.cartones.vendedor.repository.VendedorRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

@@ -1,4 +1,4 @@
-package com.eliasgonzalez.cartones.vendedor.dto;
+package com.eliasgonzalez.cartones.vendedor.controller.dto;
 
 import lombok.*;
 
@@ -8,7 +8,7 @@ import java.util.List;
 @AllArgsConstructor
 @Setter @ToString
 @Builder
-public class FilasIgnoradasDTO {
+public class CargaVendedoresResponseDTO {
 
     private List<String> filasIgnoradas;
     private String procesoId;

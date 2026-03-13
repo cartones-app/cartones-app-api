@@ -2,9 +2,9 @@ package com.eliasgonzalez.cartones.vendedor.service;
 
 import com.eliasgonzalez.cartones.pdf.entity.ProcesoDistribucion;
 import com.eliasgonzalez.cartones.pdf.interfaces.ProcesoDistribucionRepository;
-import com.eliasgonzalez.cartones.vendedor.dto.FilasIgnoradasDTO;
-import com.eliasgonzalez.cartones.vendedor.dto.VendedorResponseDTO;
-import com.eliasgonzalez.cartones.vendedor.entity.ProcesoDistribucionVendedor;
+import com.eliasgonzalez.cartones.vendedor.controller.dto.CargaVendedoresResponseDTO;
+import com.eliasgonzalez.cartones.vendedor.controller.dto.VendedorResponseDTO;
+import com.eliasgonzalez.cartones.vendedor.domain.ProcesoDistribucionVendedor;
 import com.eliasgonzalez.cartones.vendedor.service.IVendedorService;
 import com.eliasgonzalez.cartones.vendedor.mapper.VendedorMapper;
 import com.eliasgonzalez.cartones.vendedor.repository.ProcesoDistribucionVendedorRepository;
@@ -35,7 +35,7 @@ public class VendedorService implements IVendedorService {
     }
 
     @Override
-    public FilasIgnoradasDTO procesarExcel(MultipartFile file, String procesoIdCreado) {
+    public CargaVendedoresResponseDTO procesarExcel(MultipartFile file, String procesoIdCreado) {
         return excelVendedorLectorService.leerExcel(file, procesoIdCreado);
     }
 

@@ -1,7 +1,7 @@
 package com.eliasgonzalez.cartones.vendedor.mapper;
 
-import com.eliasgonzalez.cartones.vendedor.dto.VendedorResponseDTO;
-import com.eliasgonzalez.cartones.vendedor.entity.ProcesoDistribucionVendedor;
+import com.eliasgonzalez.cartones.vendedor.controller.dto.VendedorResponseDTO;
+import com.eliasgonzalez.cartones.vendedor.domain.ProcesoDistribucionVendedor;
 
 import java.util.Collections;
 import java.util.List;

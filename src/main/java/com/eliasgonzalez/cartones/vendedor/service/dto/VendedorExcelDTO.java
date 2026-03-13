@@ -1,4 +1,4 @@
-package com.eliasgonzalez.cartones.vendedor.dto;
+package com.eliasgonzalez.cartones.vendedor.service.dto;
 
 import lombok.*;
 

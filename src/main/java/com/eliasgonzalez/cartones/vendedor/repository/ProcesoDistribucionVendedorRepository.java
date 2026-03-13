@@ -1,6 +1,6 @@
 package com.eliasgonzalez.cartones.vendedor.repository;
 
-import com.eliasgonzalez.cartones.vendedor.entity.ProcesoDistribucionVendedor;
+import com.eliasgonzalez.cartones.vendedor.domain.ProcesoDistribucionVendedor;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;

@@ -1,4 +1,4 @@
-package com.eliasgonzalez.cartones.vendedor.entity;
+package com.eliasgonzalez.cartones.vendedor.domain;
 
 import com.eliasgonzalez.cartones.vendedor.domain.converter.RangosJsonConverter;
 import com.eliasgonzalez.cartones.common.audit.EntidadAuditable;

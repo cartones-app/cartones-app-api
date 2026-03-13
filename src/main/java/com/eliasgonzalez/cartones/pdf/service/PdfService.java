@@ -7,7 +7,7 @@ import com.eliasgonzalez.cartones.pdf.interfaces.IPdfService;
 import com.eliasgonzalez.cartones.pdf.mapper.PdfMapper;
 import com.eliasgonzalez.cartones.common.exception.FileProcessingException;
 import com.eliasgonzalez.cartones.common.exception.UnprocessableEntityException;
-import com.eliasgonzalez.cartones.vendedor.entity.ProcesoDistribucionVendedor;
+import com.eliasgonzalez.cartones.vendedor.domain.ProcesoDistribucionVendedor;
 import com.eliasgonzalez.cartones.vendedor.repository.ProcesoDistribucionVendedorRepository;
 import com.eliasgonzalez.cartones.zip.ZipService;
 import lombok.RequiredArgsConstructor;

@@ -5,10 +5,10 @@ import com.eliasgonzalez.cartones.common.exception.FileProcessingException;
 import com.eliasgonzalez.cartones.common.util.ExcelUtil;
 import com.eliasgonzalez.cartones.common.util.TextoUtil;
 import com.eliasgonzalez.cartones.vendedor.domain.enums.ExcelColumnaEnum;
-import com.eliasgonzalez.cartones.vendedor.dto.FilasIgnoradasDTO;
-import com.eliasgonzalez.cartones.vendedor.dto.VendedorExcelDTO;
-import com.eliasgonzalez.cartones.vendedor.entity.ProcesoDistribucionVendedor;
-import com.eliasgonzalez.cartones.vendedor.entity.Vendedor;
+import com.eliasgonzalez.cartones.vendedor.controller.dto.CargaVendedoresResponseDTO;
+import com.eliasgonzalez.cartones.vendedor.service.dto.VendedorExcelDTO;
+import com.eliasgonzalez.cartones.vendedor.domain.ProcesoDistribucionVendedor;
+import com.eliasgonzalez.cartones.vendedor.domain.Vendedor;
 import com.eliasgonzalez.cartones.vendedor.repository.ProcesoDistribucionVendedorRepository;
 import com.eliasgonzalez.cartones.vendedor.repository.VendedorRepository;
 import lombok.RequiredArgsConstructor;
@@ -41,7 +41,7 @@ public class ExcelVendedorLectorService {
     private final ExcelVendedorValidadorService validadorService;
 
     @Transactional
-    public FilasIgnoradasDTO leerExcel(MultipartFile file, String procesoIdCreado) {
+    public CargaVendedoresResponseDTO leerExcel(MultipartFile file, String procesoIdCreado) {
         log.info("Iniciando procesamiento del archivo Excel: {}", file.getOriginalFilename());
 
         List<String> erroresGlobales = new ArrayList<>();
@@ -115,13 +115,13 @@ public class ExcelVendedorLectorService {
             }
 
             if (!filasIgnoradas.isEmpty()) {
-                FilasIgnoradasDTO filasIgnoradasDTO = FilasIgnoradasDTO.builder()
+                CargaVendedoresResponseDTO filasIgnoradasDTO = CargaVendedoresResponseDTO.builder()
                     .filasIgnoradas(filasIgnoradas).procesoId(procesoIdCreado).build();
                 log.info(filasIgnoradasDTO.toString());
                 return filasIgnoradasDTO;
             }
 
-            return FilasIgnoradasDTO.builder().procesoId(procesoIdCreado).build();
+            return CargaVendedoresResponseDTO.builder().procesoId(procesoIdCreado).build();
 
         } catch (ExcelProcessingException | FileProcessingException e) {
             log.error("[INTERNO] Fallo en el procesamiento del Excel. Errores: {}. Mensaje: {}", erroresGlobales, e.getMessage());

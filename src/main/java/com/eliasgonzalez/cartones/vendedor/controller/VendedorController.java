@@ -1,8 +1,8 @@
 package com.eliasgonzalez.cartones.vendedor.controller;
 
 import com.eliasgonzalez.cartones.common.exception.ExcelProcessingException;
-import com.eliasgonzalez.cartones.vendedor.dto.FilasIgnoradasDTO;
-import com.eliasgonzalez.cartones.vendedor.dto.VendedorResponseDTO;
+import com.eliasgonzalez.cartones.vendedor.controller.dto.CargaVendedoresResponseDTO;
+import com.eliasgonzalez.cartones.vendedor.controller.dto.VendedorResponseDTO;
 import com.eliasgonzalez.cartones.vendedor.service.IVendedorService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,7 +30,7 @@ public class VendedorController {
     }
 
     @PostMapping(value = "/carga", consumes = "multipart/form-data")
-    public ResponseEntity<FilasIgnoradasDTO> cargarVendedoresDesdeExcel(
+    public ResponseEntity<CargaVendedoresResponseDTO> cargarVendedoresDesdeExcel(
             @RequestParam("file") MultipartFile file) {
 
         log.debug("POST /api/vendedores/carga - archivo: {}", file != null ? file.getOriginalFilename() : "null");
@@ -41,7 +41,7 @@ public class VendedorController {
         }
 
         String procesoIdCreado = vendedorService.iniciarProceso();
-        FilasIgnoradasDTO filasIgnoradas = vendedorService.procesarExcel(file, procesoIdCreado);
+        CargaVendedoresResponseDTO filasIgnoradas = vendedorService.procesarExcel(file, procesoIdCreado);
         return ResponseEntity.ok(filasIgnoradas);
     }
 

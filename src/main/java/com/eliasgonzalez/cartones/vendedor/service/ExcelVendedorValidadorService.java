@@ -1,6 +1,6 @@
 package com.eliasgonzalez.cartones.vendedor.service;
 
-import com.eliasgonzalez.cartones.vendedor.dto.VendedorExcelDTO;
+import com.eliasgonzalez.cartones.vendedor.service.dto.VendedorExcelDTO;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
