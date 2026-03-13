@@ -1,16 +1,17 @@
 package com.eliasgonzalez.cartones.pdf.service;
 
 import com.eliasgonzalez.cartones.pdf.dto.*;
-import com.eliasgonzalez.cartones.pdf.entity.PdfProcesos;
+import com.eliasgonzalez.cartones.pdf.entity.ProcesoDistribucion;
 import com.eliasgonzalez.cartones.pdf.enums.EstadoEnum;
 import com.eliasgonzalez.cartones.pdf.interfaces.IPdfService;
 import com.eliasgonzalez.cartones.pdf.mapper.PdfMapper;
 import com.eliasgonzalez.cartones.shared.exception.FileProcessingException;
 import com.eliasgonzalez.cartones.shared.exception.UnprocessableEntityException;
-import com.eliasgonzalez.cartones.vendedor.entity.Vendedor;
-import com.eliasgonzalez.cartones.vendedor.interfaces.VendedorRepository;
+import com.eliasgonzalez.cartones.vendedor.entity.ProcesoDistribucionVendedor;
+import com.eliasgonzalez.cartones.vendedor.repository.ProcesoDistribucionVendedorRepository;
 import com.eliasgonzalez.cartones.zip.ZipService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,15 +21,17 @@ import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class PdfService implements IPdfService {
 
     private final PdfEtiquetasService pdfEtiquetasService;
     private final PdfResumenService pdfResumenService;
-    private final VendedorRepository vendedorRepo;
+    private final ProcesoDistribucionVendedorRepository procesoVendedorRepo;
 
     private static final String ETIQUETAS = "etiquetas";
     private static final String RESUMEN = "resumen";
@@ -37,59 +40,87 @@ public class PdfService implements IPdfService {
     @Transactional
     public Resource obtenerZipPdfs(
             String procesoIdRecibido,
-            PdfProcesos proceso,
+            ProcesoDistribucion proceso,
             List<VendedorSimuladoDTO> config,
             LocalDate fechaSorteoSenete,
             LocalDate fechaSorteoTelebingo
     ) {
         try {
-            // Generamos los PDFs
             Map<String, byte[]> pdfsGenerados = generarPdfs(config, fechaSorteoSenete, fechaSorteoTelebingo, procesoIdRecibido);
-            byte[] etiquetas = pdfsGenerados.get(ETIQUETAS);
-            byte[] resumen = pdfsGenerados.get(RESUMEN);
 
             if (!EstadoEnum.VERIFICANDO.getValue().equals(proceso.getEstado())) {
-                throw new UnprocessableEntityException("El estado del proceso no es válido para descarga.", List.of("Estado: " + proceso.getEstado()));
+                throw new UnprocessableEntityException(
+                    "El estado del proceso no es válido para descarga.",
+                    List.of("Estado: " + proceso.getEstado())
+                );
             }
-
-            Map<String, byte[]> misPdfs = new HashMap<>();
-            misPdfs.put("Imprimir_etiquetas.pdf", etiquetas);
-            misPdfs.put("Resumen_entrega.pdf", resumen);
 
             proceso.setPdfEtiquetas(pdfsGenerados.get(ETIQUETAS));
             proceso.setPdfResumen(pdfsGenerados.get(RESUMEN));
 
-            return ZipService.crearZip(misPdfs);
+            Map<String, byte[]> archivos = new HashMap<>();
+            archivos.put("Imprimir_etiquetas.pdf", pdfsGenerados.get(ETIQUETAS));
+            archivos.put("Resumen_entrega.pdf", pdfsGenerados.get(RESUMEN));
+
+            return ZipService.crearZip(archivos);
 
         } catch (IOException e) {
             throw new FileProcessingException("Error generando ZIP", List.of(e.getMessage()));
         } catch (UnprocessableEntityException e) {
-            throw e; // Relanzar la excepción específica
+            throw e;
         } catch (Exception e) {
             throw new FileProcessingException("Error inesperado en PDF Service", List.of(e.getMessage()));
         }
     }
 
-    public Map<String, byte[]> generarPdfs(List<VendedorSimuladoDTO> config,
-                            LocalDate fechaSorteoSenete, LocalDate fechaSorteoTelebingo,
-                            String procesoIdRecibido
+    /**
+     * Genera los PDFs de etiquetas y resumen de manera concurrente usando Virtual Threads.
+     */
+    public Map<String, byte[]> generarPdfs(
+            List<VendedorSimuladoDTO> config,
+            LocalDate fechaSorteoSenete,
+            LocalDate fechaSorteoTelebingo,
+            String procesoIdRecibido
     ) {
-        List<Vendedor> vendedoresList = vendedorRepo.findAllByProcesoId(procesoIdRecibido);
+        log.info("Iniciando generación concurrente de PDFs para proceso: {}", procesoIdRecibido);
+        long startTime = System.currentTimeMillis();
 
-        // CONVERSIÓN DE LISTA A MAPA
-        // Se realizan estas validaciones solo por si acaso, ya que config ya viene con valores correctos
-        Map<Long, Vendedor> vendedoresMap = vendedoresList.stream()
-                .filter(v -> v.getId() != null) // Evitas nulos accidentales
-                .collect(Collectors.toMap(
-                        Vendedor::getId,
-                        vendedor -> vendedor,
-                        (existente, reemplazo) -> existente // Si hay IDs duplicados, mantiene el primero y no lanza excepción
-                ));
-        List<EtiquetaDTO> etiquetasMapeado = PdfMapper.toEtiquetaDTOs(config, vendedoresMap);
-        List<ResumenDTO> resumenMapeado = PdfMapper.toResumenDTOs(config, vendedoresMap);
+        // El ID en VendedorSimuladoDTO es el ProcesoDistribucionVendedor.id
+        List<ProcesoDistribucionVendedor> registros = procesoVendedorRepo.findAllByProcesoId(procesoIdRecibido);
 
-        byte[] etiquetas = pdfEtiquetasService.generarEtiquetas(etiquetasMapeado, fechaSorteoSenete, fechaSorteoTelebingo);
-        byte[] resumen = pdfResumenService.generarResumen(resumenMapeado, fechaSorteoSenete, fechaSorteoTelebingo);
+        Map<Long, ProcesoDistribucionVendedor> registrosMap = registros.stream()
+            .filter(r -> r.getId() != null)
+            .collect(Collectors.toMap(
+                ProcesoDistribucionVendedor::getId,
+                r -> r,
+                (existente, reemplazo) -> existente
+            ));
+
+        List<EtiquetaDTO> etiquetasMapeado = PdfMapper.toEtiquetaDTOs(config, registrosMap);
+        List<ResumenDTO> resumenMapeado = PdfMapper.toResumenDTOs(config, registrosMap);
+
+        CompletableFuture<byte[]> futureEtiquetas = CompletableFuture.supplyAsync(() -> {
+            log.debug("Generando PDF de etiquetas en thread: {}", Thread.currentThread());
+            return pdfEtiquetasService.generarEtiquetas(etiquetasMapeado, fechaSorteoSenete, fechaSorteoTelebingo);
+        });
+
+        CompletableFuture<byte[]> futureResumen = CompletableFuture.supplyAsync(() -> {
+            log.debug("Generando PDF de resumen en thread: {}", Thread.currentThread());
+            return pdfResumenService.generarResumen(resumenMapeado, fechaSorteoSenete, fechaSorteoTelebingo);
+        });
+
+        byte[] etiquetas;
+        byte[] resumen;
+        try {
+            etiquetas = futureEtiquetas.join();
+            resumen = futureResumen.join();
+        } catch (Exception e) {
+            log.error("Error durante la generación concurrente de PDFs", e);
+            throw new FileProcessingException(
+                "Error generando PDFs de manera concurrente: " + e.getMessage(),
+                List.of(e.getMessage())
+            );
+        }
 
         if (etiquetas == null) {
             throw new FileProcessingException("Error: El PDF de etiquetas no pudo ser generado.", List.of());
@@ -98,10 +129,12 @@ public class PdfService implements IPdfService {
             throw new FileProcessingException("Error: El PDF de resumen no pudo ser generado.", List.of());
         }
 
+        long endTime = System.currentTimeMillis();
+        log.info("PDFs generados exitosamente en {}ms (concurrente)", endTime - startTime);
+
         Map<String, byte[]> resultado = new HashMap<>();
         resultado.put(ETIQUETAS, etiquetas);
         resultado.put(RESUMEN, resumen);
-
         return resultado;
     }
 }

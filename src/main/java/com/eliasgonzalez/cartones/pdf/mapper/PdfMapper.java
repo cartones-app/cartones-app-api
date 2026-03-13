@@ -3,7 +3,7 @@ package com.eliasgonzalez.cartones.pdf.mapper;
 import com.eliasgonzalez.cartones.pdf.dto.EtiquetaDTO;
 import com.eliasgonzalez.cartones.pdf.dto.ResumenDTO;
 import com.eliasgonzalez.cartones.pdf.dto.VendedorSimuladoDTO;
-import com.eliasgonzalez.cartones.vendedor.entity.Vendedor;
+import com.eliasgonzalez.cartones.vendedor.entity.ProcesoDistribucionVendedor;
 
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
@@ -13,51 +13,39 @@ public class PdfMapper {
 
     public static List<EtiquetaDTO> toEtiquetaDTOs(
             List<VendedorSimuladoDTO> vendedorSimuladoDTOs,
-            Map<Long, Vendedor> vendedoresMap
+            Map<Long, ProcesoDistribucionVendedor> registrosMap
     ) {
-
-        // Formateador de decimales
         DecimalFormatSymbols simbolos = new DecimalFormatSymbols(Locale.getDefault());
-        simbolos.setGroupingSeparator('.'); // Separador de miles: punto
-
-        // Creamos el formato: "#,###"
+        simbolos.setGroupingSeparator('.');
         DecimalFormat df = new DecimalFormat("#,###", simbolos);
 
         List<EtiquetaDTO> etiquetaDTOs = new ArrayList<>();
 
-        for (int i = 0; i < vendedorSimuladoDTOs.size(); i++){
+        for (int i = 0; i < vendedorSimuladoDTOs.size(); i++) {
             VendedorSimuladoDTO simulado = vendedorSimuladoDTOs.get(i);
+            ProcesoDistribucionVendedor registro = registrosMap.get(simulado.getId());
 
-            // Recuperamos la entidad real usando el ID del DTO
-            Vendedor vendedor = vendedoresMap.get(simulado.getId());
-
-            if (vendedor == null){
-                throw new NullPointerException("El vendedor es null");
+            if (registro == null) {
+                throw new NullPointerException("El registro de distribución es null para id: " + simulado.getId());
             }
 
-            // Validación de seguridad por si no existe el ID en el mapa (evita NullPointerException)
-            String cantSenete = (vendedor.getCantidadSenete() != null) ? vendedor.getCantidadSenete().toString() : "0";
-            String resSenete = (vendedor.getResultadoSenete() != null) ? vendedor.getResultadoSenete().toString() : "0";
-            String cantTelebingo = (vendedor.getCantidadTelebingo() != null) ? vendedor.getCantidadTelebingo().toString() : "0";
-            String resTelebingo = (vendedor.getResultadoTelebingo() != null) ? vendedor.getResultadoTelebingo().toString() : "0";
-            String saldo = (vendedor.getDeuda() != null) ? df.format(vendedor.getDeuda()) : "0";
+            String cantSenete = registro.getCantidadSenete() != null ? registro.getCantidadSenete().toString() : "0";
+            String resSenete = registro.getResultadoSenete() != null ? registro.getResultadoSenete().toString() : "0";
+            String cantTelebingo = registro.getCantidadTelebingo() != null ? registro.getCantidadTelebingo().toString() : "0";
+            String resTelebingo = registro.getResultadoTelebingo() != null ? registro.getResultadoTelebingo().toString() : "0";
+            String saldo = registro.getDeuda() != null ? df.format(registro.getDeuda()) : "0";
 
             etiquetaDTOs.add(EtiquetaDTO.builder()
-                    .numeroVendedor(i + 1)
-                    .nombre(simulado.getNombre())
-                    .saldo(saldo)
-
-                    // Datos Seneté
-                    .seneteRangos(simulado.getRangosSenete())
-                    .seneteCartones(cantSenete)
-                    .resultadoSenete(resSenete)
-
-                    // Datos Telebingo
-                    .telebingoRangos(simulado.getRangosTelebingo())
-                    .telebingoCartones(cantTelebingo)
-                    .resultadoTelebingo(resTelebingo)
-
-                    .build()
+                .numeroVendedor(i + 1)
+                .nombre(simulado.getNombre())
+                .saldo(saldo)
+                .seneteRangos(simulado.getRangosSenete())
+                .seneteCartones(cantSenete)
+                .resultadoSenete(resSenete)
+                .telebingoRangos(simulado.getRangosTelebingo())
+                .telebingoCartones(cantTelebingo)
+                .resultadoTelebingo(resTelebingo)
+                .build()
             );
         }
         return etiquetaDTOs;
@@ -65,59 +53,46 @@ public class PdfMapper {
 
     public static List<ResumenDTO> toResumenDTOs(
             List<VendedorSimuladoDTO> vendedorSimuladoDTOs,
-            Map<Long, Vendedor> vendedoresMap
+            Map<Long, ProcesoDistribucionVendedor> registrosMap
     ) {
-
         List<ResumenDTO> resumenDTOs = new ArrayList<>();
 
-        for (int i = 0; i < vendedorSimuladoDTOs.size(); i++){
+        for (int i = 0; i < vendedorSimuladoDTOs.size(); i++) {
             VendedorSimuladoDTO simulado = vendedorSimuladoDTOs.get(i);
+            ProcesoDistribucionVendedor registro = registrosMap.get(simulado.getId());
 
-            // Recuperamos la entidad real
-            Vendedor vendedor = vendedoresMap.get(simulado.getId());
-
-            if (vendedor == null){
-                throw new NullPointerException("El vendedor es null");
+            if (registro == null) {
+                throw new NullPointerException("El registro de distribución es null para id: " + simulado.getId());
             }
 
-            // Validación de nulos para enteros
-            int cantSenete = (vendedor.getCantidadSenete() != null) ? vendedor.getCantidadSenete() : 0;
-            int cantTelebingo = (vendedor.getCantidadTelebingo() != null) ? vendedor.getCantidadTelebingo() : 0;
+            int cantSenete = registro.getCantidadSenete() != null ? registro.getCantidadSenete() : 0;
+            int cantTelebingo = registro.getCantidadTelebingo() != null ? registro.getCantidadTelebingo() : 0;
 
             Map<String, String> rangosSenete = extraerRangos(simulado.getRangosSenete());
             Map<String, String> rangosTelebingo = extraerRangos(simulado.getRangosTelebingo());
 
             resumenDTOs.add(ResumenDTO.builder()
-                    .numeroVendedor(i + 1)
-                    .nombre(simulado.getNombre())
-
-                    .seneteDelAl(rangosSenete)
-                    .cantidadSenete(cantSenete)
-
-                    .telebingoDelAl(rangosTelebingo)
-                    .cantidadTelebingo(cantTelebingo)
-
-                    .build()
+                .numeroVendedor(i + 1)
+                .nombre(simulado.getNombre())
+                .seneteDelAl(rangosSenete)
+                .cantidadSenete(cantSenete)
+                .telebingoDelAl(rangosTelebingo)
+                .cantidadTelebingo(cantTelebingo)
+                .build()
             );
         }
-
         return resumenDTOs;
     }
 
-    private static Map<String, String> extraerRangos (List<String> rangos){
+    private static Map<String, String> extraerRangos(List<String> rangos) {
         Map<String, String> inicioFinRango = new HashMap<>();
         if (rangos == null) return inicioFinRango;
-
-        for (String rango : rangos){
-            String[] x = obtenerExtremos(rango);
+        for (String rango : rangos) {
+            String[] x = rango.split("\\s*-\\s*");
             if (x.length >= 2) {
                 inicioFinRango.put(x[0], x[1]);
             }
         }
         return inicioFinRango;
-    }
-
-    private static String[] obtenerExtremos(String rango){
-        return rango.split("\\s*-\\s*");
     }
 }
