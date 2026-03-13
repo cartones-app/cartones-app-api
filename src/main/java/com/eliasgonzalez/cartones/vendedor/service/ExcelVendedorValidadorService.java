@@ -1,4 +1,4 @@
-package com.eliasgonzalez.cartones.excel.service;
+package com.eliasgonzalez.cartones.vendedor.service;
 
 import com.eliasgonzalez.cartones.vendedor.dto.VendedorExcelDTO;
 import org.springframework.stereotype.Service;
@@ -8,7 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Service
-public class ExcelValidationService {
+public class ExcelVendedorValidadorService {
 
     /**
      * Valida el DTO de Excel contra las reglas de negocio (no nulo, formato).
@@ -18,15 +18,10 @@ public class ExcelValidationService {
         List<String> rowErrors = new ArrayList<>();
         int filaActual = dto.getFilaActual();
 
-        // -----------------------------------------------------------
-        //    VALIDACIÓN DE CAMPOS OBLIGATORIOS
-        // -----------------------------------------------------------
-
         if (dto.getNombre() == null || dto.getNombre().isBlank()) {
             rowErrors.add(String.format("Fila %d: El campo NOMBRE del vendedor no puede estar vacío.", filaActual));
         }
 
-        // Validación de SALDO (Debe ser numérico si no está vacío)
         String deudaStr = dto.getDeudaStr();
         if (deudaStr != null && !deudaStr.isBlank()) {
             try {

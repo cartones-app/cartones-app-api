@@ -1,4 +1,4 @@
-package com.eliasgonzalez.cartones.vendedor.interfaces;
+package com.eliasgonzalez.cartones.vendedor.service;
 
 import com.eliasgonzalez.cartones.vendedor.dto.FilasIgnoradasDTO;
 import com.eliasgonzalez.cartones.vendedor.dto.VendedorResponseDTO;
@@ -8,13 +8,9 @@ import java.util.List;
 
 public interface IVendedorService {
 
-    // GET
-    List<VendedorResponseDTO> listarVendedoresValidos (String procesoIdRecibido);
+    List<VendedorResponseDTO> listarVendedoresValidos(String procesoIdRecibido);
 
-    // POST
     FilasIgnoradasDTO procesarExcel(MultipartFile file, String procesoIdCreado);
 
-    // Metodo para crear el ProcesoId
-    String iniciarProceso ();
-
+    String iniciarProceso();
 }

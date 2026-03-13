@@ -3,7 +3,7 @@ package com.eliasgonzalez.cartones.vendedor.controller;
 import com.eliasgonzalez.cartones.common.exception.ExcelProcessingException;
 import com.eliasgonzalez.cartones.vendedor.dto.FilasIgnoradasDTO;
 import com.eliasgonzalez.cartones.vendedor.dto.VendedorResponseDTO;
-import com.eliasgonzalez.cartones.vendedor.interfaces.IVendedorService;
+import com.eliasgonzalez.cartones.vendedor.service.IVendedorService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;

@@ -1,11 +1,10 @@
-package com.eliasgonzalez.cartones.excel.service;
+package com.eliasgonzalez.cartones.vendedor.service;
 
-import com.eliasgonzalez.cartones.excel.enums.ExcelEnum;
-import com.eliasgonzalez.cartones.excel.interfaces.IExcelService;
 import com.eliasgonzalez.cartones.common.exception.ExcelProcessingException;
 import com.eliasgonzalez.cartones.common.exception.FileProcessingException;
 import com.eliasgonzalez.cartones.common.util.ExcelUtil;
 import com.eliasgonzalez.cartones.common.util.TextoUtil;
+import com.eliasgonzalez.cartones.vendedor.domain.enums.ExcelColumnaEnum;
 import com.eliasgonzalez.cartones.vendedor.dto.FilasIgnoradasDTO;
 import com.eliasgonzalez.cartones.vendedor.dto.VendedorExcelDTO;
 import com.eliasgonzalez.cartones.vendedor.entity.ProcesoDistribucionVendedor;
@@ -27,24 +26,22 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Servicio encargado de la orquestación (I/O) y persistencia de datos
- * desde un archivo Excel de distribución, aplicando un enfoque "Todo o Nada".
+ * Orquesta la lectura del Excel de distribución y persiste los datos.
+ * Estrategia "todo o nada": si alguna fila tiene errores críticos, se aborta sin guardar nada.
  * Por cada fila válida: upsert en la tabla vendedor (maestro) +
  * creación de ProcesoDistribucionVendedor (datos de este proceso).
  */
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class ExcelService implements IExcelService {
+public class ExcelVendedorLectorService {
 
     private final VendedorRepository vendedorRepo;
     private final ProcesoDistribucionVendedorRepository procesoVendedorRepo;
-    private final ExcelValidationService validationService;
+    private final ExcelVendedorValidadorService validadorService;
 
-    @Override
     @Transactional
     public FilasIgnoradasDTO leerExcel(MultipartFile file, String procesoIdCreado) {
-
         log.info("Iniciando procesamiento del archivo Excel: {}", file.getOriginalFilename());
 
         List<String> erroresGlobales = new ArrayList<>();
@@ -54,17 +51,14 @@ public class ExcelService implements IExcelService {
         try (InputStream is = file.getInputStream();
              Workbook wb = WorkbookFactory.create(is)) {
 
-            // 1. CONFIGURACIÓN INICIAL + EVALUADOR
             FormulaEvaluator evaluator = wb.getCreationHelper().createFormulaEvaluator();
             evaluator.clearAllCachedResultValues();
             evaluator.evaluateAll();
 
-            int sheetIndex = wb.getSheetIndex(ExcelEnum.HOJA_SISTEMA_ETIQUETAS.getValue());
+            int sheetIndex = wb.getSheetIndex(ExcelColumnaEnum.HOJA.getValor());
             if (sheetIndex < 0) {
                 throw new ExcelProcessingException(
-                    "La hoja ('" + ExcelEnum.HOJA_SISTEMA_ETIQUETAS.getValue() + "') no fue encontrada.",
-                    List.of()
-                );
+                    "La hoja ('" + ExcelColumnaEnum.HOJA.getValor() + "') no fue encontrada.", List.of());
             }
             Sheet sheet = wb.getSheetAt(sheetIndex);
 
@@ -79,11 +73,10 @@ public class ExcelService implements IExcelService {
                 if (name != null) idx.put(TextoUtil.normalize(name), c.getColumnIndex());
             }
 
-            validateHeader(idx);
+            validarEncabezados(idx);
 
-            Integer vIdx = idx.get(TextoUtil.normalize(ExcelEnum.VENDEDOR.getValue()));
+            Integer vIdx = idx.get(TextoUtil.normalize(ExcelColumnaEnum.VENDEDOR.getValor()));
 
-            // 2. LECTURA Y VALIDACIÓN
             for (int i = 1; i <= sheet.getLastRowNum(); i++) {
                 int filaActual = i + 1;
                 Row row = sheet.getRow(i);
@@ -96,16 +89,13 @@ public class ExcelService implements IExcelService {
 
                 try {
                     VendedorExcelDTO dto = mapearFilaADTO(idx, row, filaActual, evaluator);
-                    List<String> erroresFila = validationService.validate(dto);
+                    List<String> erroresFila = validadorService.validate(dto);
 
                     if (!erroresFila.isEmpty()) {
                         erroresGlobales.addAll(erroresFila);
                     } else {
-                        // Upsert del vendedor maestro + crear entrada de proceso
-                        ProcesoDistribucionVendedor registro = resolverVendedorYCrearRegistro(dto, procesoIdCreado);
-                        registrosParaGuardar.add(registro);
+                        registrosParaGuardar.add(resolverVendedorYCrearRegistro(dto, procesoIdCreado));
                     }
-
                 } catch (Exception e) {
                     String errorMessage = String.format("Fila %d: Error inesperado al procesar: %s", filaActual, e.getMessage());
                     log.error(errorMessage);
@@ -113,13 +103,10 @@ public class ExcelService implements IExcelService {
                 }
             }
 
-            // 3. DECISIÓN FINAL (TODO O NADA)
             if (!erroresGlobales.isEmpty()) {
                 log.warn("Se detectaron {} errores. Abortando operación sin guardar nada.", erroresGlobales.size());
                 throw new ExcelProcessingException(
-                    "El archivo Excel contiene errores. No se ha guardado ningún dato.",
-                    erroresGlobales
-                );
+                    "El archivo Excel contiene errores. No se ha guardado ningún dato.", erroresGlobales);
             }
 
             if (!registrosParaGuardar.isEmpty()) {
@@ -129,9 +116,7 @@ public class ExcelService implements IExcelService {
 
             if (!filasIgnoradas.isEmpty()) {
                 FilasIgnoradasDTO filasIgnoradasDTO = FilasIgnoradasDTO.builder()
-                    .filasIgnoradas(filasIgnoradas)
-                    .procesoId(procesoIdCreado)
-                    .build();
+                    .filasIgnoradas(filasIgnoradas).procesoId(procesoIdCreado).build();
                 log.info(filasIgnoradasDTO.toString());
                 return filasIgnoradasDTO;
             }
@@ -147,18 +132,10 @@ public class ExcelService implements IExcelService {
         }
     }
 
-    /**
-     * Busca el vendedor en la tabla maestra por nombre (case-insensitive).
-     * Si no existe, lo crea. Luego construye el ProcesoDistribucionVendedor
-     * con los datos de este proceso.
-     */
     private ProcesoDistribucionVendedor resolverVendedorYCrearRegistro(VendedorExcelDTO dto, String procesoId) {
-        String nombreNormalizado = dto.getNombre().trim();
-
-        Vendedor vendedor = vendedorRepo.findByNombreIgnoreCase(nombreNormalizado)
-            .orElseGet(() -> vendedorRepo.save(
-                Vendedor.builder().nombre(nombreNormalizado).build()
-            ));
+        String nombre = dto.getNombre().trim();
+        Vendedor vendedor = vendedorRepo.findByNombreIgnoreCase(nombre)
+            .orElseGet(() -> vendedorRepo.save(Vendedor.builder().nombre(nombre).build()));
 
         String deudaStr = dto.getDeudaStr();
         BigDecimal deuda = (deudaStr == null || deudaStr.isBlank())
@@ -176,14 +153,14 @@ public class ExcelService implements IExcelService {
             .build();
     }
 
-    private static void validateHeader(Map<String, Integer> idx) {
+    private void validarEncabezados(Map<String, Integer> idx) {
         String[] required = {
-            ExcelEnum.VENDEDOR.getValue(),
-            ExcelEnum.SALDO.getValue(),
-            ExcelEnum.CANT_SENETE.getValue(),
-            ExcelEnum.RESULT_SENETE.getValue(),
-            ExcelEnum.CANT_TELEBINGO.getValue(),
-            ExcelEnum.RESULT_TELEBINGO.getValue()
+            ExcelColumnaEnum.VENDEDOR.getValor(),
+            ExcelColumnaEnum.SALDO.getValor(),
+            ExcelColumnaEnum.CANT_SENETE.getValor(),
+            ExcelColumnaEnum.RESULT_SENETE.getValor(),
+            ExcelColumnaEnum.CANT_TELEBINGO.getValor(),
+            ExcelColumnaEnum.RESULT_TELEBINGO.getValor()
         };
         List<String> faltantes = new ArrayList<>();
         for (String h : required) {
@@ -194,14 +171,14 @@ public class ExcelService implements IExcelService {
         }
     }
 
-    private static VendedorExcelDTO mapearFilaADTO(Map<String, Integer> idx, Row row, int filaActual, FormulaEvaluator evaluator) {
+    private VendedorExcelDTO mapearFilaADTO(Map<String, Integer> idx, Row row, int filaActual, FormulaEvaluator evaluator) {
         return VendedorExcelDTO.builder()
-            .nombre(ExcelUtil.getStringCell(row, idx.get(TextoUtil.normalize(ExcelEnum.VENDEDOR.getValue())), evaluator))
-            .deudaStr(ExcelUtil.getStringCell(row, idx.get(TextoUtil.normalize(ExcelEnum.SALDO.getValue())), evaluator))
-            .cantidadSenete(ExcelUtil.getIntCell(row, idx.get(TextoUtil.normalize(ExcelEnum.CANT_SENETE.getValue())), evaluator))
-            .resultadoSenete(ExcelUtil.getIntCell(row, idx.get(TextoUtil.normalize(ExcelEnum.RESULT_SENETE.getValue())), evaluator))
-            .cantidadTelebingo(ExcelUtil.getIntCell(row, idx.get(TextoUtil.normalize(ExcelEnum.CANT_TELEBINGO.getValue())), evaluator))
-            .resultadoTelebingo(ExcelUtil.getIntCell(row, idx.get(TextoUtil.normalize(ExcelEnum.RESULT_TELEBINGO.getValue())), evaluator))
+            .nombre(ExcelUtil.getStringCell(row, idx.get(TextoUtil.normalize(ExcelColumnaEnum.VENDEDOR.getValor())), evaluator))
+            .deudaStr(ExcelUtil.getStringCell(row, idx.get(TextoUtil.normalize(ExcelColumnaEnum.SALDO.getValor())), evaluator))
+            .cantidadSenete(ExcelUtil.getIntCell(row, idx.get(TextoUtil.normalize(ExcelColumnaEnum.CANT_SENETE.getValor())), evaluator))
+            .resultadoSenete(ExcelUtil.getIntCell(row, idx.get(TextoUtil.normalize(ExcelColumnaEnum.RESULT_SENETE.getValor())), evaluator))
+            .cantidadTelebingo(ExcelUtil.getIntCell(row, idx.get(TextoUtil.normalize(ExcelColumnaEnum.CANT_TELEBINGO.getValor())), evaluator))
+            .resultadoTelebingo(ExcelUtil.getIntCell(row, idx.get(TextoUtil.normalize(ExcelColumnaEnum.RESULT_TELEBINGO.getValor())), evaluator))
             .filaActual(filaActual)
             .build();
     }
