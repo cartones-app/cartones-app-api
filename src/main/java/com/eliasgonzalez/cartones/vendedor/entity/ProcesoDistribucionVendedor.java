@@ -1,7 +1,7 @@
 package com.eliasgonzalez.cartones.vendedor.entity;
 
-import com.eliasgonzalez.cartones.config.ListaRangosConverter;
-import com.eliasgonzalez.cartones.shared.entity.EntidadAuditable;
+import com.eliasgonzalez.cartones.vendedor.domain.converter.RangosJsonConverter;
+import com.eliasgonzalez.cartones.common.audit.EntidadAuditable;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -49,7 +49,7 @@ public class ProcesoDistribucionVendedor extends EntidadAuditable {
     @Builder.Default
     private Integer resultadoSenete = 0;
 
-    @Convert(converter = ListaRangosConverter.class)
+    @Convert(converter = RangosJsonConverter.class)
     @Column(name = "rangos_senete", columnDefinition = "TEXT")
     @Builder.Default
     private List<String> rangosSenete = new ArrayList<>();
@@ -63,7 +63,7 @@ public class ProcesoDistribucionVendedor extends EntidadAuditable {
     @Builder.Default
     private Integer resultadoTelebingo = 0;
 
-    @Convert(converter = ListaRangosConverter.class)
+    @Convert(converter = RangosJsonConverter.class)
     @Column(name = "rangos_telebingo", columnDefinition = "TEXT")
     @Builder.Default
     private List<String> rangosTelebingo = new ArrayList<>();

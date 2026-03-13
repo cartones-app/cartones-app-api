@@ -4,7 +4,7 @@ import com.eliasgonzalez.cartones.ruta.controller.dto.ExclusionRutaRequestDTO;
 import com.eliasgonzalez.cartones.ruta.controller.dto.ExclusionRutaResponseDTO;
 import com.eliasgonzalez.cartones.ruta.entity.ExclusionRuta;
 import com.eliasgonzalez.cartones.ruta.repository.ExclusionRutaRepository;
-import com.eliasgonzalez.cartones.shared.exception.ResourceNotFoundException;
+import com.eliasgonzalez.cartones.common.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

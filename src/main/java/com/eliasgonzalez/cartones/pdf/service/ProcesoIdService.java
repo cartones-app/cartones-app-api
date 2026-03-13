@@ -2,7 +2,7 @@ package com.eliasgonzalez.cartones.pdf.service;
 
 import com.eliasgonzalez.cartones.pdf.entity.ProcesoDistribucion;
 import com.eliasgonzalez.cartones.pdf.enums.EstadoEnum;
-import com.eliasgonzalez.cartones.shared.exception.UnprocessableEntityException;
+import com.eliasgonzalez.cartones.common.exception.UnprocessableEntityException;
 
 import java.util.List;
 

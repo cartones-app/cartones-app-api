@@ -1,4 +1,4 @@
-package com.eliasgonzalez.cartones.config;
+package com.eliasgonzalez.cartones.common.config;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.aop.interceptor.AsyncUncaughtExceptionHandler;
@@ -16,7 +16,7 @@ import java.util.concurrent.Executor;
 @Configuration
 @EnableAsync
 @Slf4j
-public class ConcurrencyConfig implements AsyncConfigurer {
+public class AsyncConfig implements AsyncConfigurer {
 
     @Override
     public Executor getAsyncExecutor() {
@@ -47,15 +47,12 @@ public class ConcurrencyConfig implements AsyncConfigurer {
     static class SecurityContextTaskDecorator implements TaskDecorator {
         @Override
         public Runnable decorate(Runnable runnable) {
-            // Capturamos el contexto actual (donde está el JWT/Usuario)
             SecurityContext context = SecurityContextHolder.getContext();
-
             return () -> {
                 try {
                     SecurityContextHolder.setContext(context);
                     runnable.run();
                 } finally {
-                    // Limpieza para evitar fugas de memoria o contaminación de hilos
                     SecurityContextHolder.clearContext();
                 }
             };

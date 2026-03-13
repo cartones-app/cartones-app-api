@@ -1,6 +1,6 @@
 package com.eliasgonzalez.cartones.vendedor.controller;
 
-import com.eliasgonzalez.cartones.shared.exception.ExcelProcessingException;
+import com.eliasgonzalez.cartones.common.exception.ExcelProcessingException;
 import com.eliasgonzalez.cartones.vendedor.dto.FilasIgnoradasDTO;
 import com.eliasgonzalez.cartones.vendedor.dto.VendedorResponseDTO;
 import com.eliasgonzalez.cartones.vendedor.interfaces.IVendedorService;

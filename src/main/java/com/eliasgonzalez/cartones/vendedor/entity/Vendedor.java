@@ -1,6 +1,6 @@
 package com.eliasgonzalez.cartones.vendedor.entity;
 
-import com.eliasgonzalez.cartones.shared.entity.EntidadAuditable;
+import com.eliasgonzalez.cartones.common.audit.EntidadAuditable;
 import jakarta.persistence.*;
 import lombok.*;
 

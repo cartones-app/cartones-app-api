@@ -1,4 +1,4 @@
-package com.eliasgonzalez.cartones.config;
+package com.eliasgonzalez.cartones.common.audit;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -16,7 +16,7 @@ import java.util.Optional;
  */
 @Configuration
 @EnableJpaAuditing(auditorAwareRef = "auditorAware")
-public class AuditoriaConfig {
+public class JpaAuditConfig {
 
     @Bean
     public AuditorAware<String> auditorAware() {

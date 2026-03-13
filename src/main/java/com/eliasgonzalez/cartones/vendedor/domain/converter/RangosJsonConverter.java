@@ -1,4 +1,4 @@
-package com.eliasgonzalez.cartones.config;
+package com.eliasgonzalez.cartones.vendedor.domain.converter;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -10,7 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Converter
-public class ListaRangosConverter implements AttributeConverter<List<String>, String> {
+public class RangosJsonConverter implements AttributeConverter<List<String>, String> {
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
 

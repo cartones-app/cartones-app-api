@@ -6,9 +6,10 @@ import com.eliasgonzalez.cartones.ruta.entity.SesionRuta;
 import com.eliasgonzalez.cartones.ruta.entity.enums.RutaColumnaEnum;
 import com.eliasgonzalez.cartones.ruta.repository.ExclusionRutaRepository;
 import com.eliasgonzalez.cartones.ruta.repository.SesionRutaRepository;
-import com.eliasgonzalez.cartones.shared.exception.ExcelProcessingException;
-import com.eliasgonzalez.cartones.shared.exception.ResourceNotFoundException;
-import com.eliasgonzalez.cartones.shared.util.Util;
+import com.eliasgonzalez.cartones.common.exception.ExcelProcessingException;
+import com.eliasgonzalez.cartones.common.exception.ResourceNotFoundException;
+import com.eliasgonzalez.cartones.common.util.ExcelUtil;
+import com.eliasgonzalez.cartones.common.util.TextoUtil;
 import com.eliasgonzalez.cartones.vendedor.entity.Vendedor;
 import com.eliasgonzalez.cartones.vendedor.repository.VendedorRepository;
 import lombok.RequiredArgsConstructor;
@@ -95,7 +96,7 @@ public class RutaExcelLectorService {
         // Cargar exclusiones activas de BD (normalizado para comparación)
         Set<String> nombresExcluidos = new HashSet<>();
         exclusionRutaRepo.findByActivoTrue()
-            .forEach(e -> nombresExcluidos.add(Util.normalize(e.getNombre())));
+            .forEach(e -> nombresExcluidos.add(TextoUtil.normalize(e.getNombre())));
 
         List<RegistroRutaDTO> registros;
         try (Workbook wb = WorkbookFactory.create(new ByteArrayInputStream(sesion.getArchivoExcel()))) {
@@ -155,7 +156,7 @@ public class RutaExcelLectorService {
             if (c.getCellType() == CellType.STRING) {
                 String nombre = c.getStringCellValue();
                 if (nombre != null && !nombre.isBlank()) {
-                    idx.put(Util.normalize(nombre), c.getColumnIndex());
+                    idx.put(TextoUtil.normalize(nombre), c.getColumnIndex());
                 }
             }
         }
@@ -170,7 +171,7 @@ public class RutaExcelLectorService {
         );
         List<String> faltantes = new ArrayList<>();
         for (String col : requeridos) {
-            if (!idx.containsKey(Util.normalize(col))) faltantes.add(col);
+            if (!idx.containsKey(TextoUtil.normalize(col))) faltantes.add(col);
         }
         if (!faltantes.isEmpty()) {
             throw new ExcelProcessingException("Faltan columnas requeridas en el Excel: " + faltantes, List.of());
@@ -182,8 +183,8 @@ public class RutaExcelLectorService {
      * Mantiene el orden de aparición.
      */
     private List<String> extraerFechasUnicas(Sheet sheet, Map<String, Integer> idx, FormulaEvaluator evaluator) {
-        Integer fechaIdx = idx.get(Util.normalize(RutaColumnaEnum.FECHA.getValor()));
-        Integer vendedorIdx = idx.get(Util.normalize(RutaColumnaEnum.VENDEDOR.getValor()));
+        Integer fechaIdx = idx.get(TextoUtil.normalize(RutaColumnaEnum.FECHA.getValor()));
+        Integer vendedorIdx = idx.get(TextoUtil.normalize(RutaColumnaEnum.VENDEDOR.getValor()));
         LinkedHashSet<String> fechas = new LinkedHashSet<>();
 
         for (int i = 1; i <= sheet.getLastRowNum(); i++) {
@@ -191,7 +192,7 @@ public class RutaExcelLectorService {
             if (row == null) continue;
             if (esFiltroEstructural(row, vendedorIdx, evaluator)) break;
 
-            String fecha = Util.getStringCell(row, fechaIdx, evaluator);
+            String fecha = ExcelUtil.getStringCell(row, fechaIdx, evaluator);
             if (fecha != null && !fecha.isBlank()) {
                 fechas.add(fecha.trim());
             }
@@ -209,8 +210,8 @@ public class RutaExcelLectorService {
             List<String> fechasSeleccionadas,
             Set<String> nombresExcluidos
     ) {
-        Integer fechaIdx    = idx.get(Util.normalize(RutaColumnaEnum.FECHA.getValor()));
-        Integer vendedorIdx = idx.get(Util.normalize(RutaColumnaEnum.VENDEDOR.getValor()));
+        Integer fechaIdx    = idx.get(TextoUtil.normalize(RutaColumnaEnum.FECHA.getValor()));
+        Integer vendedorIdx = idx.get(TextoUtil.normalize(RutaColumnaEnum.VENDEDOR.getValor()));
 
         Set<String> nombresVistos = new HashSet<>(); // para deduplicar por nombre
         List<RegistroRutaDTO> resultado = new ArrayList<>();
@@ -222,22 +223,22 @@ public class RutaExcelLectorService {
             // Límite estructural: desde TOTAL en adelante, parar
             if (esFiltroEstructural(row, vendedorIdx, evaluator)) break;
 
-            String nombreVendedor = Util.getStringCell(row, vendedorIdx, evaluator);
+            String nombreVendedor = ExcelUtil.getStringCell(row, vendedorIdx, evaluator);
             if (nombreVendedor == null || nombreVendedor.isBlank()) continue;
             nombreVendedor = nombreVendedor.trim();
 
             // Exclusión por lista en BD
-            if (nombresExcluidos.contains(Util.normalize(nombreVendedor))) continue;
+            if (nombresExcluidos.contains(TextoUtil.normalize(nombreVendedor))) continue;
 
             // Exclusión por color rojo en la celda VENDEDOR
             if (tieneCeldaRoja(row, vendedorIdx)) continue;
 
             // Filtro por fecha seleccionada
-            String fecha = Util.getStringCell(row, fechaIdx, evaluator);
+            String fecha = ExcelUtil.getStringCell(row, fechaIdx, evaluator);
             if (fecha == null || !fechasSeleccionadas.contains(fecha.trim())) continue;
 
             // Deduplicación: primera ocurrencia por nombre
-            String claveDedup = Util.normalize(nombreVendedor);
+            String claveDedup = TextoUtil.normalize(nombreVendedor);
             if (nombresVistos.contains(claveDedup)) {
                 log.warn("Vendedor duplicado ignorado en fila {}: '{}'", i + 1, nombreVendedor);
                 continue;
@@ -261,15 +262,15 @@ public class RutaExcelLectorService {
             .nombre(nombre)
             .fecha(fecha)
             .numeroFila(numeroFila)
-            .deudaAnterior(getBigDecimalCell(row, idx.get(Util.normalize(RutaColumnaEnum.DEUDA_ANT.getValor())), evaluator))
-            .seneteTotalEnviado(Util.getIntCell(row, idx.get(Util.normalize(RutaColumnaEnum.SENETE_TOTAL_ENVIADO.getValor())), evaluator))
-            .telebingoTotalEnviado(Util.getIntCell(row, idx.get(Util.normalize(RutaColumnaEnum.TELEBINGO_TOTAL_ENVIADO.getValor())), evaluator))
-            .refSenete(Util.getIntCell(row, idx.get(Util.normalize(RutaColumnaEnum.REF_SENETE.getValor())), evaluator))
-            .refTelb(Util.getIntCell(row, idx.get(Util.normalize(RutaColumnaEnum.REF_TELB.getValor())), evaluator))
-            .devSen(Util.getIntCell(row, idx.get(Util.normalize(RutaColumnaEnum.DEV_SEN.getValor())), evaluator))
-            .devTelb(Util.getIntCell(row, idx.get(Util.normalize(RutaColumnaEnum.DEV_TELB.getValor())), evaluator))
-            .pago1(getBigDecimalCell(row, idx.get(Util.normalize(RutaColumnaEnum.PAGO1.getValor())), evaluator))
-            .pago2(getBigDecimalCell(row, idx.get(Util.normalize(RutaColumnaEnum.PAGO2.getValor())), evaluator))
+            .deudaAnterior(getBigDecimalCell(row, idx.get(TextoUtil.normalize(RutaColumnaEnum.DEUDA_ANT.getValor())), evaluator))
+            .seneteTotalEnviado(ExcelUtil.getIntCell(row, idx.get(TextoUtil.normalize(RutaColumnaEnum.SENETE_TOTAL_ENVIADO.getValor())), evaluator))
+            .telebingoTotalEnviado(ExcelUtil.getIntCell(row, idx.get(TextoUtil.normalize(RutaColumnaEnum.TELEBINGO_TOTAL_ENVIADO.getValor())), evaluator))
+            .refSenete(ExcelUtil.getIntCell(row, idx.get(TextoUtil.normalize(RutaColumnaEnum.REF_SENETE.getValor())), evaluator))
+            .refTelb(ExcelUtil.getIntCell(row, idx.get(TextoUtil.normalize(RutaColumnaEnum.REF_TELB.getValor())), evaluator))
+            .devSen(ExcelUtil.getIntCell(row, idx.get(TextoUtil.normalize(RutaColumnaEnum.DEV_SEN.getValor())), evaluator))
+            .devTelb(ExcelUtil.getIntCell(row, idx.get(TextoUtil.normalize(RutaColumnaEnum.DEV_TELB.getValor())), evaluator))
+            .pago1(getBigDecimalCell(row, idx.get(TextoUtil.normalize(RutaColumnaEnum.PAGO1.getValor())), evaluator))
+            .pago2(getBigDecimalCell(row, idx.get(TextoUtil.normalize(RutaColumnaEnum.PAGO2.getValor())), evaluator))
             .build();
     }
 
@@ -279,7 +280,7 @@ public class RutaExcelLectorService {
      */
     private boolean esFiltroEstructural(Row row, Integer vendedorIdx, FormulaEvaluator evaluator) {
         if (vendedorIdx == null) return false;
-        String valor = Util.getStringCell(row, vendedorIdx, evaluator);
+        String valor = ExcelUtil.getStringCell(row, vendedorIdx, evaluator);
         return valor != null && valor.trim().toUpperCase().contains("TOTAL");
     }
 
@@ -309,7 +310,7 @@ public class RutaExcelLectorService {
 
     private BigDecimal getBigDecimalCell(Row row, Integer colIdx, FormulaEvaluator evaluator) {
         if (colIdx == null || row == null) return null;
-        String valor = Util.getStringCell(row, colIdx, evaluator);
+        String valor = ExcelUtil.getStringCell(row, colIdx, evaluator);
         if (valor == null || valor.isBlank()) return null;
         try {
             return new BigDecimal(valor.trim().replace(",", "."));

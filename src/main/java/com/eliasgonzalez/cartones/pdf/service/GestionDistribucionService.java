@@ -5,7 +5,7 @@ import com.eliasgonzalez.cartones.pdf.dto.SimulacionRequestDTO;
 import com.eliasgonzalez.cartones.pdf.dto.VendedorSimuladoDTO;
 import com.eliasgonzalez.cartones.pdf.entity.ProcesoDistribucion;
 import com.eliasgonzalez.cartones.pdf.interfaces.ProcesoDistribucionRepository;
-import com.eliasgonzalez.cartones.shared.exception.ResourceNotFoundException;
+import com.eliasgonzalez.cartones.common.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

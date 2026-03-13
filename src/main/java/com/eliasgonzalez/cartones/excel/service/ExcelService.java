@@ -2,9 +2,10 @@ package com.eliasgonzalez.cartones.excel.service;
 
 import com.eliasgonzalez.cartones.excel.enums.ExcelEnum;
 import com.eliasgonzalez.cartones.excel.interfaces.IExcelService;
-import com.eliasgonzalez.cartones.shared.exception.ExcelProcessingException;
-import com.eliasgonzalez.cartones.shared.exception.FileProcessingException;
-import com.eliasgonzalez.cartones.shared.util.Util;
+import com.eliasgonzalez.cartones.common.exception.ExcelProcessingException;
+import com.eliasgonzalez.cartones.common.exception.FileProcessingException;
+import com.eliasgonzalez.cartones.common.util.ExcelUtil;
+import com.eliasgonzalez.cartones.common.util.TextoUtil;
 import com.eliasgonzalez.cartones.vendedor.dto.FilasIgnoradasDTO;
 import com.eliasgonzalez.cartones.vendedor.dto.VendedorExcelDTO;
 import com.eliasgonzalez.cartones.vendedor.entity.ProcesoDistribucionVendedor;
@@ -75,19 +76,19 @@ public class ExcelService implements IExcelService {
             Map<String, Integer> idx = new HashMap<>();
             for (Cell c : header) {
                 String name = c.getStringCellValue();
-                if (name != null) idx.put(Util.normalize(name), c.getColumnIndex());
+                if (name != null) idx.put(TextoUtil.normalize(name), c.getColumnIndex());
             }
 
             validateHeader(idx);
 
-            Integer vIdx = idx.get(Util.normalize(ExcelEnum.VENDEDOR.getValue()));
+            Integer vIdx = idx.get(TextoUtil.normalize(ExcelEnum.VENDEDOR.getValue()));
 
             // 2. LECTURA Y VALIDACIÓN
             for (int i = 1; i <= sheet.getLastRowNum(); i++) {
                 int filaActual = i + 1;
                 Row row = sheet.getRow(i);
 
-                if (Util.isRowEmpty(row, vIdx, evaluator)) {
+                if (ExcelUtil.isRowEmpty(row, vIdx, evaluator)) {
                     filasIgnoradas.add("Fila " + filaActual + ": Vacía o sin nombre de vendedor. Omitiendo.");
                     log.warn("Se omite la fila {} porque el nombre del vendedor está vacío. ProcesoId: {}", filaActual, procesoIdCreado);
                     continue;
@@ -186,7 +187,7 @@ public class ExcelService implements IExcelService {
         };
         List<String> faltantes = new ArrayList<>();
         for (String h : required) {
-            if (!idx.containsKey(Util.normalize(h))) faltantes.add(h);
+            if (!idx.containsKey(TextoUtil.normalize(h))) faltantes.add(h);
         }
         if (!faltantes.isEmpty()) {
             throw new ExcelProcessingException("Faltan encabezados requeridos: " + faltantes, List.of());
@@ -195,12 +196,12 @@ public class ExcelService implements IExcelService {
 
     private static VendedorExcelDTO mapearFilaADTO(Map<String, Integer> idx, Row row, int filaActual, FormulaEvaluator evaluator) {
         return VendedorExcelDTO.builder()
-            .nombre(Util.getStringCell(row, idx.get(Util.normalize(ExcelEnum.VENDEDOR.getValue())), evaluator))
-            .deudaStr(Util.getStringCell(row, idx.get(Util.normalize(ExcelEnum.SALDO.getValue())), evaluator))
-            .cantidadSenete(Util.getIntCell(row, idx.get(Util.normalize(ExcelEnum.CANT_SENETE.getValue())), evaluator))
-            .resultadoSenete(Util.getIntCell(row, idx.get(Util.normalize(ExcelEnum.RESULT_SENETE.getValue())), evaluator))
-            .cantidadTelebingo(Util.getIntCell(row, idx.get(Util.normalize(ExcelEnum.CANT_TELEBINGO.getValue())), evaluator))
-            .resultadoTelebingo(Util.getIntCell(row, idx.get(Util.normalize(ExcelEnum.RESULT_TELEBINGO.getValue())), evaluator))
+            .nombre(ExcelUtil.getStringCell(row, idx.get(TextoUtil.normalize(ExcelEnum.VENDEDOR.getValue())), evaluator))
+            .deudaStr(ExcelUtil.getStringCell(row, idx.get(TextoUtil.normalize(ExcelEnum.SALDO.getValue())), evaluator))
+            .cantidadSenete(ExcelUtil.getIntCell(row, idx.get(TextoUtil.normalize(ExcelEnum.CANT_SENETE.getValue())), evaluator))
+            .resultadoSenete(ExcelUtil.getIntCell(row, idx.get(TextoUtil.normalize(ExcelEnum.RESULT_SENETE.getValue())), evaluator))
+            .cantidadTelebingo(ExcelUtil.getIntCell(row, idx.get(TextoUtil.normalize(ExcelEnum.CANT_TELEBINGO.getValue())), evaluator))
+            .resultadoTelebingo(ExcelUtil.getIntCell(row, idx.get(TextoUtil.normalize(ExcelEnum.RESULT_TELEBINGO.getValue())), evaluator))
             .filaActual(filaActual)
             .build();
     }

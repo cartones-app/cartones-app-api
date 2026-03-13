@@ -1,7 +1,7 @@
 package com.eliasgonzalez.cartones.pdf.service;
 
 import com.eliasgonzalez.cartones.pdf.dto.EtiquetaDTO;
-import com.eliasgonzalez.cartones.shared.exception.PdfCreationException;
+import com.eliasgonzalez.cartones.common.exception.PdfCreationException;
 import com.lowagie.text.Document;
 import com.lowagie.text.Element;
 import com.lowagie.text.PageSize;

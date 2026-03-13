@@ -1,9 +1,9 @@
-package com.eliasgonzalez.cartones.config;
+package com.eliasgonzalez.cartones.common.config;
 
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 @Configuration
 @EnableScheduling
-public class SchedulerConfig {
+public class TareasConfig {
 }

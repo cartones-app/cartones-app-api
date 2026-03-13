@@ -1,4 +1,4 @@
-package com.eliasgonzalez.cartones.shared.entity;
+package com.eliasgonzalez.cartones.common.audit;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.EntityListeners;

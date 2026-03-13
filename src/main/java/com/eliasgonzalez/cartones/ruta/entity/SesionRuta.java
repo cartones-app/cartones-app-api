@@ -1,7 +1,7 @@
 package com.eliasgonzalez.cartones.ruta.entity;
 
 import com.eliasgonzalez.cartones.ruta.entity.enums.EstadoSesionEnum;
-import com.eliasgonzalez.cartones.shared.entity.EntidadAuditable;
+import com.eliasgonzalez.cartones.common.audit.EntidadAuditable;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;

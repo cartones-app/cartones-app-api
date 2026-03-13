@@ -7,9 +7,10 @@ import com.eliasgonzalez.cartones.ruta.entity.enums.EstadoSesionEnum;
 import com.eliasgonzalez.cartones.ruta.entity.enums.RutaColumnaEnum;
 import com.eliasgonzalez.cartones.ruta.repository.SesionRutaRegistroRepository;
 import com.eliasgonzalez.cartones.ruta.repository.SesionRutaRepository;
-import com.eliasgonzalez.cartones.shared.exception.ExcelProcessingException;
-import com.eliasgonzalez.cartones.shared.exception.ResourceNotFoundException;
-import com.eliasgonzalez.cartones.shared.util.Util;
+import com.eliasgonzalez.cartones.common.exception.ExcelProcessingException;
+import com.eliasgonzalez.cartones.common.exception.ResourceNotFoundException;
+import com.eliasgonzalez.cartones.common.util.ExcelUtil;
+import com.eliasgonzalez.cartones.common.util.TextoUtil;
 import com.eliasgonzalez.cartones.vendedor.entity.Vendedor;
 import com.eliasgonzalez.cartones.vendedor.repository.VendedorRepository;
 import lombok.RequiredArgsConstructor;
@@ -108,21 +109,21 @@ public class RutaExcelExportadorService {
      * Las celdas con fórmula se omiten — Excel las recalcula al abrir el archivo.
      */
     private void escribirColumnasEntrada(Row row, Map<String, Integer> idx, RegistroRutaDTO dto) {
-        escribirEntero(row, idx.get(Util.normalize(RutaColumnaEnum.SENETE_TOTAL_ENVIADO.getValor())),
+        escribirEntero(row, idx.get(TextoUtil.normalize(RutaColumnaEnum.SENETE_TOTAL_ENVIADO.getValor())),
             dto.getSeneteTotalEnviado());
-        escribirEntero(row, idx.get(Util.normalize(RutaColumnaEnum.TELEBINGO_TOTAL_ENVIADO.getValor())),
+        escribirEntero(row, idx.get(TextoUtil.normalize(RutaColumnaEnum.TELEBINGO_TOTAL_ENVIADO.getValor())),
             dto.getTelebingoTotalEnviado());
-        escribirEntero(row, idx.get(Util.normalize(RutaColumnaEnum.REF_SENETE.getValor())),
+        escribirEntero(row, idx.get(TextoUtil.normalize(RutaColumnaEnum.REF_SENETE.getValor())),
             dto.getRefSenete());
-        escribirEntero(row, idx.get(Util.normalize(RutaColumnaEnum.REF_TELB.getValor())),
+        escribirEntero(row, idx.get(TextoUtil.normalize(RutaColumnaEnum.REF_TELB.getValor())),
             dto.getRefTelb());
-        escribirEntero(row, idx.get(Util.normalize(RutaColumnaEnum.DEV_SEN.getValor())),
+        escribirEntero(row, idx.get(TextoUtil.normalize(RutaColumnaEnum.DEV_SEN.getValor())),
             dto.getDevSen());
-        escribirEntero(row, idx.get(Util.normalize(RutaColumnaEnum.DEV_TELB.getValor())),
+        escribirEntero(row, idx.get(TextoUtil.normalize(RutaColumnaEnum.DEV_TELB.getValor())),
             dto.getDevTelb());
-        escribirDecimal(row, idx.get(Util.normalize(RutaColumnaEnum.PAGO1.getValor())),
+        escribirDecimal(row, idx.get(TextoUtil.normalize(RutaColumnaEnum.PAGO1.getValor())),
             dto.getPago1());
-        escribirDecimal(row, idx.get(Util.normalize(RutaColumnaEnum.PAGO2.getValor())),
+        escribirDecimal(row, idx.get(TextoUtil.normalize(RutaColumnaEnum.PAGO2.getValor())),
             dto.getPago2());
     }
 
@@ -223,7 +224,7 @@ public class RutaExcelExportadorService {
             if (c.getCellType() == CellType.STRING) {
                 String nombre = c.getStringCellValue();
                 if (nombre != null && !nombre.isBlank()) {
-                    idx.put(Util.normalize(nombre), c.getColumnIndex());
+                    idx.put(TextoUtil.normalize(nombre), c.getColumnIndex());
                 }
             }
         }
