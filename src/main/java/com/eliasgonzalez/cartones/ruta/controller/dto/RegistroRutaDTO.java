@@ -38,4 +38,7 @@ public class RegistroRutaDTO {
     private Integer devTelb;
     private BigDecimal pago1;
     private BigDecimal pago2;
+
+    // Nota del distribuidor — solo se envía en el request de exportación, nunca en la respuesta de E1
+    private String nota;
 }
