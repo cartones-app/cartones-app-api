@@ -1,0 +1,117 @@
+# ===========================================
+# Configuración Base - Cartones Backend
+# ===========================================
+
+spring:
+  application:
+    name: cartones-backend
+
+  # ===========================================
+  # Java 21 Virtual Threads (Concurrencia)
+  # ===========================================
+  threads:
+    virtual:
+      enabled: true
+
+  # Configuración de Base de Datos
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+      connection-timeout: 30000
+      max-lifetime: 1800000
+
+  # Configuración de JPA/Hibernate
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: validate
+    show-sql: ${APP_SHOW_SQL:false}
+    properties:
+      hibernate:
+        format_sql: ${APP_SHOW_SQL:false}
+    open-in-view: ${APP_OPEN_IN_VIEW:false}
+
+  # Flyway — migraciones versionadas de BD
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    baseline-version: 0
+    validate-on-migrate: true
+
+  # Configuración de Jackson
+  jackson:
+    time-zone: UTC
+    serialization:
+      write-dates-as-timestamps: false
+
+# Configuración de CORS
+app:
+  cors:
+    origins: ${APP_CORS_ORIGINS:http://localhost:3000}
+
+  # Configuración de Seguridad JWT
+  security:
+    jwt:
+      # Secreto para firmar tokens
+      secret-key: ${JWT_SECRET_KEY:una-clave-secreta-muy-larga-de-al-menos-32-caracteres-para-firmar-tokens-jwt}
+      # Tiempo de expiración del token en milisegundos (86400000 = 24 horas)
+      expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+
+# Configuración de Logging
+logging:
+  level:
+    com.eliasgonzalez.cartones: ${APP_LOG_LEVEL:INFO}
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+# ===========================================
+# Spring Boot Actuator - Observabilidad
+# ===========================================
+management:
+  endpoints:
+    web:
+      exposure:
+        # Exponer endpoints de salud, métricas y Prometheus
+        include: health,info,metrics,prometheus
+      base-path: /actuator
+
+  endpoint:
+    health:
+      # Mostrar detalles de health checks (se restringe en prod)
+      show-details: always
+      probes:
+        enabled: true
+
+    prometheus:
+      enabled: true
+
+    metrics:
+      enabled: true
+
+  # Health indicators
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
+    db:
+      enabled: true
+    diskspace:
+      enabled: true
+
+  # Configuración de métricas
+  metrics:
+    enable:
+      jvm: true
+      process: true
+      system: true
+      http: true
+      logback: true
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+    tags:
+      application: ${spring.application.name}
+      environment: ${spring.profiles.active:default}

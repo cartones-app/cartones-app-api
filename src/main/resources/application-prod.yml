@@ -1,0 +1,38 @@
+# ===========================================
+# PERFIL PROD (Producción)
+# ===========================================
+
+server:
+  # Graceful shutdown para Railway
+  shutdown: graceful
+  # Compresión de respuestas HTTP
+  compression:
+    enabled: true
+    min-response-size: 1024
+    mime-types: text/html,application/json
+
+spring:
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+
+# Logging optimizado para producción
+logging:
+  level:
+    root: INFO
+    org.springframework: WARN
+    org.hibernate: WARN
+    com.zaxxer.hikari: WARN
+
+# ===========================================
+# Actuator - Configuración de Producción
+# ===========================================
+management:
+  endpoint:
+    health:
+      # Solo mostrar detalles cuando esté autorizado (Fase 2: Seguridad)
+      show-details: when-authorized
+
+  # Restringir información de entorno sensible
+  info:
+    env:
+      enabled: false

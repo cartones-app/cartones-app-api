@@ -1,0 +1,26 @@
+# ===========================================
+# PERFIL DEV (Calidad de vida)
+# ===========================================
+
+spring:
+  # Habilitar colores ANSI en consola
+  output:
+    ansi:
+      enabled: ALWAYS
+
+  # Mostrar errores completos en navegador
+  web:
+    resources:
+      cache:
+        period: 0  # Desactivar cache web
+
+server:
+  error:
+    include-message: always
+    include-binding-errors: always
+    include-stacktrace: always
+
+# Trazas profundas de SQL (valores de parámetros)
+logging:
+  level:
+    org.hibernate.orm.jdbc.bind: TRACE
