@@ -2,7 +2,7 @@ package com.eliasgonzalez.cartones.ruta.service;
 
 import com.eliasgonzalez.cartones.ruta.controller.dto.ExclusionRutaRequestDTO;
 import com.eliasgonzalez.cartones.ruta.controller.dto.ExclusionRutaResponseDTO;
-import com.eliasgonzalez.cartones.ruta.entity.ExclusionRuta;
+import com.eliasgonzalez.cartones.ruta.domain.ExclusionRuta;
 import com.eliasgonzalez.cartones.ruta.repository.ExclusionRutaRepository;
 import com.eliasgonzalez.cartones.common.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;

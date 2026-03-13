@@ -1,4 +1,4 @@
-package com.eliasgonzalez.cartones.ruta.entity;
+package com.eliasgonzalez.cartones.ruta.domain;
 
 import com.eliasgonzalez.cartones.common.audit.EntidadAuditable;
 import com.eliasgonzalez.cartones.vendedor.domain.Vendedor;

@@ -2,9 +2,9 @@ package com.eliasgonzalez.cartones.ruta.service;
 
 import com.eliasgonzalez.cartones.ruta.controller.dto.SesionRutaRegistroResponseDTO;
 import com.eliasgonzalez.cartones.ruta.controller.dto.SesionRutaResponseDTO;
-import com.eliasgonzalez.cartones.ruta.entity.SesionRuta;
-import com.eliasgonzalez.cartones.ruta.entity.SesionRutaRegistro;
-import com.eliasgonzalez.cartones.ruta.entity.enums.EstadoSesionEnum;
+import com.eliasgonzalez.cartones.ruta.domain.SesionRuta;
+import com.eliasgonzalez.cartones.ruta.domain.SesionRutaRegistro;
+import com.eliasgonzalez.cartones.ruta.domain.enums.EstadoSesionEnum;
 import com.eliasgonzalez.cartones.ruta.repository.SesionRutaRegistroRepository;
 import com.eliasgonzalez.cartones.ruta.repository.SesionRutaRepository;
 import com.eliasgonzalez.cartones.common.exception.ResourceNotFoundException;

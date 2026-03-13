@@ -1,4 +1,4 @@
-package com.eliasgonzalez.cartones.ruta.entity.enums;
+package com.eliasgonzalez.cartones.ruta.domain.enums;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;

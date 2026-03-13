@@ -1,6 +1,6 @@
-package com.eliasgonzalez.cartones.ruta.entity;
+package com.eliasgonzalez.cartones.ruta.domain;
 
-import com.eliasgonzalez.cartones.ruta.entity.enums.EstadoSesionEnum;
+import com.eliasgonzalez.cartones.ruta.domain.enums.EstadoSesionEnum;
 import com.eliasgonzalez.cartones.common.audit.EntidadAuditable;
 import jakarta.persistence.*;
 import lombok.*;

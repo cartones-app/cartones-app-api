@@ -2,8 +2,8 @@ package com.eliasgonzalez.cartones.ruta.service;
 
 import com.eliasgonzalez.cartones.ruta.controller.dto.CargaRutaResponseDTO;
 import com.eliasgonzalez.cartones.ruta.controller.dto.RegistroRutaDTO;
-import com.eliasgonzalez.cartones.ruta.entity.SesionRuta;
-import com.eliasgonzalez.cartones.ruta.entity.enums.RutaColumnaEnum;
+import com.eliasgonzalez.cartones.ruta.domain.SesionRuta;
+import com.eliasgonzalez.cartones.ruta.domain.enums.RutaColumnaEnum;
 import com.eliasgonzalez.cartones.ruta.repository.ExclusionRutaRepository;
 import com.eliasgonzalez.cartones.ruta.repository.SesionRutaRepository;
 import com.eliasgonzalez.cartones.common.exception.ExcelProcessingException;
