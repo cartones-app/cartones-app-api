@@ -31,7 +31,6 @@ public class DistribucionController {
             @Valid @RequestBody SimulacionRequestDTO solicitud,
             @PathVariable String procesoId) {
 
-        log.info(solicitud.toString());
         log.info("Iniciando simulación para el proceso ID: {}", procesoId);
         return ResponseEntity.ok(gestionDistribucion.procesarSimulacion(procesoId, solicitud));
     }

@@ -1,7 +1,9 @@
 package com.eliasgonzalez.cartones.excel.interfaces;
 
+import com.eliasgonzalez.cartones.vendedor.dto.FilasIgnoradasDTO;
 import org.springframework.web.multipart.MultipartFile;
 
 public interface IExcelService {
-    void leerExcel(MultipartFile file, String procesoIdCreado);
+
+    FilasIgnoradasDTO leerExcel(MultipartFile file, String procesoIdCreado);
 }

@@ -1,14 +1,16 @@
 package com.eliasgonzalez.cartones.vendedor.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.util.List;
 
 @NoArgsConstructor
 @AllArgsConstructor
+@Setter @ToString
+@Builder
 public class FilasIgnoradasDTO {
 
     private List<String> filasIgnoradas;
+    private String procesoId;
 
 }

@@ -1,6 +1,7 @@
 package com.eliasgonzalez.cartones.vendedor.controller;
 
 import com.eliasgonzalez.cartones.shared.exception.ExcelProcessingException;
+import com.eliasgonzalez.cartones.vendedor.dto.FilasIgnoradasDTO;
 import com.eliasgonzalez.cartones.vendedor.dto.VendedorResponseDTO;
 import com.eliasgonzalez.cartones.vendedor.interfaces.IVendedorService;
 import lombok.RequiredArgsConstructor;
@@ -29,7 +30,7 @@ public class VendedorController {
     }
 
     @PostMapping(value = "/carga", consumes = "multipart/form-data")
-    public ResponseEntity<String> cargarVendedoresDesdeExcel(
+    public ResponseEntity<FilasIgnoradasDTO> cargarVendedoresDesdeExcel(
             @RequestParam("file") MultipartFile file) {
 
         // PRE-VALIDACIÓN: Antes de tocar el InputStream
@@ -39,9 +40,8 @@ public class VendedorController {
         }
 
         String procesoIdCreado = vendedorService.iniciarProceso();
-        vendedorService.procesarExcel(file, procesoIdCreado);
-
-        return ResponseEntity.ok(procesoIdCreado);
+        FilasIgnoradasDTO filasIgnoradas = vendedorService.procesarExcel(file, procesoIdCreado);
+        return ResponseEntity.ok(filasIgnoradas);
     }
 
 
