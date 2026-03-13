@@ -1,93 +1,237 @@
-# Cartones App - Backend API
+# Cartones App — Backend API
 
-Sistema de gestión para vendedores y cartones de bingo. Este repositorio contiene el **Backend** desarrollado en Java con Spring Boot, desplegado en la nube.
+Sistema de gestión para vendedores y cartones de bingo. API REST en Spring Boot que procesa archivos Excel, simula la distribución de cartones (Senete y Telebingo) y genera reportes PDF comprimidos en ZIP.
 
-## Tecnologías
-
-* **Lenguaje:** Java 21
-* **Framework:** Spring Boot 3.3.1
-* **Base de Datos:** PostgreSQL (Railway)
-* **Infraestructura:** Railway (Backend + DB)
-* **Frontend:** Next.js (Desplegado en Vercel)
+**Autor:** Elías González
 
 ---
 
-## ⚙Configuración del Entorno (Variables)
+## Stack
 
-Para que la aplicación funcione correctamente (tanto en local como en Railway), es necesario configurar las siguientes variables de entorno.
-
-### En Producción (Railway)
-Estas variables se configuran en la pestaña *Variables* del servicio en Railway.
-
-| Variable | Valor / Ejemplo | Descripción                                     |
-| :--- | :--- |:------------------------------------------------|
-| `PORT` | `9001` | Puerto expuesto por el contenedor.              |
-| `SERVER_PORT` | `9001` | Puerto donde escucha Spring Boot.               |
-| `SPRING_PROFILES_ACTIVE`| `prod` | Activa la configuración de producción.          |
-| `SPRING_DATASOURCE_URL` | `jdbc:postgresql://host:port/db` | **Importante:** Debe incluir `jdbc:` al inicio. |
-| `SPRING_DATASOURCE_USERNAME`| `postgres` | Usuario de la BD.                               |
-| `SPRING_DATASOURCE_PASSWORD`| `*****` | Contraseña de la BD.                            |
-| `APP_CORS_ORIGINS` | `https://rgq-web.vercel.app` | URL del Frontend                                |
-| `APP_DDL_AUTO` | `update` | Gestión automática del esquema de la BD.        |
+| Capa | Tecnología |
+|------|-----------|
+| Backend | Java 21 + Spring Boot 3.3.1 |
+| Base de datos | PostgreSQL 16 |
+| Autenticación | Keycloak 26 (OAuth2 / JWT) |
+| Excel | Apache POI 5.2.5 |
+| PDFs | OpenPDF 1.3.30 |
+| Migraciones | Flyway |
+| Contenedores | Docker / Docker Compose |
+| Producción | Railway (backend + DB) |
+| Frontend | Next.js en Vercel |
 
 ---
 
-## Instalación y Ejecución Local
+## Arranque rápido
 
-Si deseas correr el proyecto en tu máquina local:
+### Opción A — Sin Keycloak (más simple, solo para desarrollo)
 
-1.  **Clonar el repositorio:**
-    ```bash
-    git clone https://github.com/eliasss3990/backend-AppWeb-Railway.git
-    cd backend-AppWeb-Railway
-    ```
+Requiere una instancia de PostgreSQL local o en Docker corriendo aparte.
 
-2.  **Configurar Variables (.env o IDE):**
-    Renombra el archivo `.env.example` a `.env` con el siguiente comando.
-    ```bash
-    cp .env.example .env
-    ```
-    Luego, edítalo para ajustar las variables para el entorno de desarrollo.
+```bash
+# Instalar dependencias y compilar
+mvn clean package -DskipTests
 
-3.  **Configurar los secretos:**
-    Ejecuta estos comandos y luego edita los archivos por un user y una password segura.
-    ```bash
-    cp secrets_store/db_user.txt.example secrets_store/db_user.txt && 
-    cp secrets_store/db_password.txt.example secrets/db_password.txt
-    ```
+# Arrancar con perfil local (seguridad deshabilitada)
+mvn spring-boot:run -Dspring.profiles.active=local,dev
+```
 
-3.  **Levantar los servicios:**
-    ```bash
-    docker compose up -d --build
-    ```
+El perfil `local` deshabilita toda autenticación. Útil para probar endpoints rápidamente sin levantar Keycloak.
+
+---
+
+### Opción B — Con Docker Compose (PostgreSQL + Keycloak + Backend)
+
+**1. Copiar y configurar variables de entorno:**
+```bash
+cp .env.example .env
+# Editar .env con tus valores
+```
+
+**2. Configurar secretos de base de datos:**
+```bash
+cp secrets_store/db_user.txt.example secrets_store/db_user.txt
+cp secrets_store/db_password.txt.example secrets_store/db_password.txt
+# Editar ambos archivos con credenciales seguras
+```
+
+**3. Levantar todos los servicios:**
+```bash
+docker compose up -d --build
+```
+
+Esto levanta tres contenedores:
+- `postgres_cartones_db` — PostgreSQL en el puerto `PORT_DB`
+- `cartones_keycloak` — Keycloak en el puerto `PORT_KEYCLOAK` (default 8080)
+- `cartones_backend` — Spring Boot en el puerto `PORT_BACKEND`
+
+Keycloak importa automáticamente el realm `cartones` desde `keycloak/realm-cartones.json`.
+
+**Ver logs:**
+```bash
+docker compose logs -f backend
+docker compose logs -f keycloak
+```
+
+**Detener:**
+```bash
+docker compose down
+```
+
+---
+
+### Opción C — Solo Maven (con Keycloak corriendo por separado)
+
+```bash
+# Con perfil dev (requiere Keycloak en localhost:8080 y PostgreSQL)
+mvn spring-boot:run -Dspring.profiles.active=dev
+```
+
+---
+
+## Autenticación
+
+El backend funciona como **OAuth2 Resource Server**. Valida tokens JWT emitidos por Keycloak.
+
+### Roles
+
+| Rol | Acceso |
+|-----|--------|
+| `ADMIN` | Todo: operaciones de negocio + endpoints `/api/admin/**` + `/actuator/**` |
+| `DISTRIBUIDOR` | Solo operaciones de negocio (`/api/**` excepto `/api/admin/**`) |
+
+### Obtener un token (desarrollo)
+
+```bash
+curl -s -X POST http://localhost:8080/realms/cartones/protocol/openid-connect/token \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "client_id=frontend" \
+  -d "grant_type=password" \
+  -d "username=admin" \
+  -d "password=admin123" \
+  | jq -r .access_token
+```
+
+Usuarios demo del realm (contraseñas temporales — cambiar al primer login):
+- `admin` / `admin123` → rol `ADMIN`
+- `distribuidor` / `distribuidor123` → rol `DISTRIBUIDOR`
+
+### Usar el token
+
+```bash
+curl -H "Authorization: Bearer <TOKEN>" http://localhost:9001/api/vendedores/<procesoId>
+```
+
+---
+
+## Variables de entorno
+
+### `.env` (Docker Compose — desarrollo)
+
+| Variable | Ejemplo | Descripción |
+|----------|---------|-------------|
+| `APP_PROFILE` | `dev` | Perfil de Spring Boot |
+| `DB_DDL_AUTO` | `update` | DDL de Hibernate (`update` dev / `validate` prod) |
+| `DB_SHOW_SQL` | `true` | Log de SQL |
+| `LOG_LEVEL` | `DEBUG` | Nivel de log de la app |
+| `OPEN_IN_VIEW` | `true` | Open-in-view de JPA |
+| `FRONTEND_URL` | `http://localhost:3000` | Origen CORS del frontend |
+| `POSTGRES_DB` | `cartones` | Nombre de la base de datos |
+| `PORT_DB` | `5432` | Puerto PostgreSQL expuesto en host |
+| `PORT_BACKEND` | `9001` | Puerto del backend expuesto en host |
+| `PORT_KEYCLOAK` | `8080` | Puerto de Keycloak expuesto en host |
+| `KEYCLOAK_ADMIN_USER` | `admin` | Usuario admin de Keycloak |
+| `KEYCLOAK_ADMIN_PASSWORD` | `*****` | Contraseña admin de Keycloak |
+
+### Railway (producción)
+
+| Variable | Descripción |
+|----------|-------------|
+| `SERVER_PORT` | Puerto del contenedor (ej: `9001`) |
+| `SPRING_PROFILES_ACTIVE` | `prod` |
+| `SPRING_DATASOURCE_URL` | `jdbc:postgresql://host:port/db` |
+| `SPRING_DATASOURCE_USERNAME` | Usuario PostgreSQL |
+| `SPRING_DATASOURCE_PASSWORD` | Contraseña PostgreSQL |
+| `APP_CORS_ORIGINS` | URL del frontend (ej: `https://rgq-web.vercel.app`) |
+| `APP_DDL_AUTO` | `validate` |
+| `KEYCLOAK_ISSUER_URI` | URL pública del realm (ej: `https://keycloak.midominio.com/realms/cartones`) |
+| `KEYCLOAK_JWK_SET_URI` | URL de claves públicas del realm |
+
+---
+
+## Endpoints
+
+Todos con prefijo `/api`. Requieren token JWT excepto donde se indica.
+
+### Vendedores
+
+| Método | Ruta | Descripción | Rol mínimo |
+|--------|------|-------------|-----------|
+| `POST` | `/api/vendedores/carga` | Carga Excel de vendedores, crea `procesoId` | `DISTRIBUIDOR` |
+| `GET` | `/api/vendedores/{procesoId}` | Lista vendedores válidos del proceso | `DISTRIBUIDOR` |
+
+### Distribución (PDFs)
+
+| Método | Ruta | Descripción | Rol mínimo |
+|--------|------|-------------|-----------|
+| `POST` | `/api/distribuciones/{procesoId}/simular` | Simula distribución de cartones | `DISTRIBUIDOR` |
+| `GET` | `/api/distribuciones/{procesoId}/pdfs` | Descarga ZIP con PDFs de etiquetas y resumen | `DISTRIBUIDOR` |
+
+### Ruta (recorrido de cobro)
+
+| Método | Ruta | Descripción | Rol mínimo |
+|--------|------|-------------|-----------|
+| `POST` | `/api/ruta/carga` | Carga Excel de ruta, crea sesión | `DISTRIBUIDOR` |
+| `POST` | `/api/ruta/{sesionId}/registros` | Filtra registros por fechas | `DISTRIBUIDOR` |
+| `POST` | `/api/ruta/{sesionId}/exportar` | Exporta Excel con valores completados | `DISTRIBUIDOR` |
+
+### Admin — Sesiones de Ruta
+
+| Método | Ruta | Descripción | Rol |
+|--------|------|-------------|-----|
+| `GET` | `/api/admin/ruta/sesiones` | Lista todas las sesiones | `ADMIN` |
+| `GET` | `/api/admin/ruta/sesiones/{sesionId}` | Detalle de una sesión | `ADMIN` |
+| `GET` | `/api/admin/ruta/sesiones/{sesionId}/registros` | Registros de una sesión | `ADMIN` |
+| `DELETE` | `/api/admin/ruta/sesiones/{sesionId}` | Elimina una sesión | `ADMIN` |
+| `DELETE` | `/api/admin/ruta/sesiones` | Elimina sesiones en lote | `ADMIN` |
+| `DELETE` | `/api/admin/ruta/sesiones/{sesionId}/registros/{registroId}` | Elimina un registro | `ADMIN` |
+
+### Admin — Exclusiones de Ruta
+
+| Método | Ruta | Descripción | Rol |
+|--------|------|-------------|-----|
+| `GET` | `/api/admin/ruta/exclusiones` | Lista exclusiones de vendedores | `ADMIN` |
+| `POST` | `/api/admin/ruta/exclusiones` | Crea exclusión | `ADMIN` |
+| `PUT` | `/api/admin/ruta/exclusiones/{id}` | Actualiza exclusión | `ADMIN` |
+| `DELETE` | `/api/admin/ruta/exclusiones/{id}` | Elimina exclusión | `ADMIN` |
+
+### Actuator (observabilidad)
+
+| Ruta | Acceso |
+|------|--------|
+| `GET /actuator/health` | Público |
+| `GET /actuator/metrics` | `ADMIN` |
+| `GET /actuator/prometheus` | `ADMIN` |
+
+---
+
+## Build y tests
+
+```bash
+# Compilar sin tests
+mvn clean package -DskipTests
+
+# Ejecutar todos los tests
+mvn test
+
+# Ejecutar una clase de test específica
+mvn test -Dtest=NombreDeClase
+```
 
 ---
 
 ## Despliegue (CI/CD)
 
-El proyecto cuenta con integración continua.
+Push a `master` → Railway detecta el cambio → compila con Dockerfile → despliega sin downtime.
 
-1.  Al hacer un **Push** a la rama `master` en GitHub.
-2.  **Railway** detecta el cambio automáticamente.
-3.  Se compila el proyecto, se generan las imágenes de Docker y se despliega la nueva versión sin tiempo de inactividad.
-
----
-
-## Endpoints Principales
-
-Todos los endpoints están prefijados con `/api`.
-
-### Vendedores
-
-*   `POST /api/vendedores/carga` - Carga vendedores desde un archivo Excel.
-*   `GET /api/vendedores/{procesoId}` - Lista los vendedores válidos para un `procesoId` específico.
-*   `DELETE /api/vendedores` - Elimina todos los vendedores.
-
-### Distribuciones (PDFs)
-
-*   `POST /api/distribuciones/{procesoId}/simular` - Simula la distribución de cartones para un `procesoId` dado.
-*   `GET /api/distribuciones/{procesoId}/pdfs` - Descarga los PDFs generados para un `procesoId` como un archivo ZIP.
-
----
-
-**Autor:** Elías González
+El Dockerfile usa build multi-stage (Maven → Alpine JRE) con `-DskipTests` y `-XX:MaxRAMPercentage=60.0`.
