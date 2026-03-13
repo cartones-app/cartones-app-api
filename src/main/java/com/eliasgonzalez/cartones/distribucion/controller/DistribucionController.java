@@ -20,7 +20,6 @@ import java.util.List;
 @RequestMapping("/api/distribuciones")
 @RequiredArgsConstructor
 @Slf4j
-@CrossOrigin(origins = "${app.cors.origins}")
 public class DistribucionController {
 
     private final DistribucionOrquestadorService gestionDistribucion;

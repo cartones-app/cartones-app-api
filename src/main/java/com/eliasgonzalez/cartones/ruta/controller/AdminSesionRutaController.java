@@ -21,7 +21,6 @@ import java.util.List;
 @RequestMapping("/api/admin/ruta")
 @RequiredArgsConstructor
 @Slf4j
-@CrossOrigin(origins = "${app.cors.origins}")
 public class AdminSesionRutaController {
 
     private final AdminSesionRutaService sesionRutaService;

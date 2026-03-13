@@ -20,7 +20,6 @@ import java.util.List;
 @RequestMapping("/api/admin/ruta/exclusiones")
 @RequiredArgsConstructor
 @Slf4j
-@CrossOrigin(origins = "${app.cors.origins}")
 public class AdminExclusionRutaController {
 
     private final AdminExclusionRutaService exclusionService;

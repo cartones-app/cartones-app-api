@@ -16,7 +16,6 @@ import java.util.List;
 @RequiredArgsConstructor
 @RequestMapping("/api/vendedores")
 @Slf4j
-@CrossOrigin(origins = "${app.cors.origins}")
 public class VendedorController {
 
     private final IVendedorService vendedorService;
