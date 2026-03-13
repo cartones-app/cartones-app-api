@@ -1,16 +1,17 @@
 package com.eliasgonzalez.cartones.vendedor.service;
 
+import com.eliasgonzalez.cartones.common.excel.AbstractExcelParser;
 import com.eliasgonzalez.cartones.common.exception.ExcelProcessingException;
 import com.eliasgonzalez.cartones.common.exception.FileProcessingException;
 import com.eliasgonzalez.cartones.common.util.ExcelUtil;
 import com.eliasgonzalez.cartones.common.util.TextoUtil;
-import com.eliasgonzalez.cartones.vendedor.domain.enums.ExcelColumnaEnum;
 import com.eliasgonzalez.cartones.vendedor.controller.dto.CargaVendedoresResponseDTO;
-import com.eliasgonzalez.cartones.vendedor.service.dto.VendedorExcelDTO;
 import com.eliasgonzalez.cartones.vendedor.domain.ProcesoDistribucionVendedor;
 import com.eliasgonzalez.cartones.vendedor.domain.Vendedor;
+import com.eliasgonzalez.cartones.vendedor.domain.enums.ExcelColumnaEnum;
 import com.eliasgonzalez.cartones.vendedor.repository.ProcesoDistribucionVendedorRepository;
 import com.eliasgonzalez.cartones.vendedor.repository.VendedorRepository;
+import com.eliasgonzalez.cartones.vendedor.service.dto.VendedorExcelDTO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
@@ -21,7 +22,6 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.InputStream;
 import java.math.BigDecimal;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -34,7 +34,16 @@ import java.util.Map;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class ExcelVendedorLectorService {
+public class ExcelVendedorLectorService extends AbstractExcelParser {
+
+    private static final List<String> COLUMNAS_REQUERIDAS = List.of(
+        ExcelColumnaEnum.VENDEDOR.getValor(),
+        ExcelColumnaEnum.SALDO.getValor(),
+        ExcelColumnaEnum.CANT_SENETE.getValor(),
+        ExcelColumnaEnum.RESULT_SENETE.getValor(),
+        ExcelColumnaEnum.CANT_TELEBINGO.getValor(),
+        ExcelColumnaEnum.RESULT_TELEBINGO.getValor()
+    );
 
     private final VendedorRepository vendedorRepo;
     private final ProcesoDistribucionVendedorRepository procesoVendedorRepo;
@@ -51,29 +60,10 @@ public class ExcelVendedorLectorService {
         try (InputStream is = file.getInputStream();
              Workbook wb = WorkbookFactory.create(is)) {
 
-            FormulaEvaluator evaluator = wb.getCreationHelper().createFormulaEvaluator();
-            evaluator.clearAllCachedResultValues();
-            evaluator.evaluateAll();
-
-            int sheetIndex = wb.getSheetIndex(ExcelColumnaEnum.HOJA.getValor());
-            if (sheetIndex < 0) {
-                throw new ExcelProcessingException(
-                    "La hoja ('" + ExcelColumnaEnum.HOJA.getValor() + "') no fue encontrada.", List.of());
-            }
-            Sheet sheet = wb.getSheetAt(sheetIndex);
-
-            Row header = sheet.getRow(0);
-            if (header == null) {
-                throw new ExcelProcessingException("El archivo Excel está vacío o no tiene encabezados.", List.of());
-            }
-
-            Map<String, Integer> idx = new HashMap<>();
-            for (Cell c : header) {
-                String name = c.getStringCellValue();
-                if (name != null) idx.put(TextoUtil.normalize(name), c.getColumnIndex());
-            }
-
-            validarEncabezados(idx);
+            FormulaEvaluator evaluator = crearEvaluador(wb);
+            Sheet sheet = obtenerHoja(wb, ExcelColumnaEnum.HOJA.getValor());
+            Map<String, Integer> idx = construirIndiceColumnas(sheet);
+            validarEncabezados(idx, COLUMNAS_REQUERIDAS);
 
             Integer vIdx = idx.get(TextoUtil.normalize(ExcelColumnaEnum.VENDEDOR.getValor()));
 
@@ -151,24 +141,6 @@ public class ExcelVendedorLectorService {
             .resultadoTelebingo(dto.getResultadoTelebingo())
             .deuda(deuda)
             .build();
-    }
-
-    private void validarEncabezados(Map<String, Integer> idx) {
-        String[] required = {
-            ExcelColumnaEnum.VENDEDOR.getValor(),
-            ExcelColumnaEnum.SALDO.getValor(),
-            ExcelColumnaEnum.CANT_SENETE.getValor(),
-            ExcelColumnaEnum.RESULT_SENETE.getValor(),
-            ExcelColumnaEnum.CANT_TELEBINGO.getValor(),
-            ExcelColumnaEnum.RESULT_TELEBINGO.getValor()
-        };
-        List<String> faltantes = new ArrayList<>();
-        for (String h : required) {
-            if (!idx.containsKey(TextoUtil.normalize(h))) faltantes.add(h);
-        }
-        if (!faltantes.isEmpty()) {
-            throw new ExcelProcessingException("Faltan encabezados requeridos: " + faltantes, List.of());
-        }
     }
 
     private VendedorExcelDTO mapearFilaADTO(Map<String, Integer> idx, Row row, int filaActual, FormulaEvaluator evaluator) {

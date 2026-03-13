@@ -84,4 +84,15 @@ public class ExcelUtil {
         }
         return null;
     }
+
+    public static BigDecimal getBigDecimalCell(Row row, Integer colIdx, FormulaEvaluator evaluator) {
+        if (colIdx == null || row == null) return null;
+        String valor = getStringCell(row, colIdx, evaluator);
+        if (valor == null || valor.isBlank()) return null;
+        try {
+            return new BigDecimal(valor.trim().replace(",", "."));
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
 }

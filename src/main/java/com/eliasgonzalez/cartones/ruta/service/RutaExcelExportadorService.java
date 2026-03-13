@@ -1,5 +1,9 @@
 package com.eliasgonzalez.cartones.ruta.service;
 
+import com.eliasgonzalez.cartones.common.excel.AbstractExcelParser;
+import com.eliasgonzalez.cartones.common.exception.ExcelProcessingException;
+import com.eliasgonzalez.cartones.common.exception.ResourceNotFoundException;
+import com.eliasgonzalez.cartones.common.util.TextoUtil;
 import com.eliasgonzalez.cartones.ruta.controller.dto.RegistroRutaDTO;
 import com.eliasgonzalez.cartones.ruta.domain.SesionRuta;
 import com.eliasgonzalez.cartones.ruta.domain.SesionRutaRegistro;
@@ -7,10 +11,6 @@ import com.eliasgonzalez.cartones.ruta.domain.enums.EstadoSesionEnum;
 import com.eliasgonzalez.cartones.ruta.domain.enums.RutaColumnaEnum;
 import com.eliasgonzalez.cartones.ruta.repository.SesionRutaRegistroRepository;
 import com.eliasgonzalez.cartones.ruta.repository.SesionRutaRepository;
-import com.eliasgonzalez.cartones.common.exception.ExcelProcessingException;
-import com.eliasgonzalez.cartones.common.exception.ResourceNotFoundException;
-import com.eliasgonzalez.cartones.common.util.ExcelUtil;
-import com.eliasgonzalez.cartones.common.util.TextoUtil;
 import com.eliasgonzalez.cartones.vendedor.domain.Vendedor;
 import com.eliasgonzalez.cartones.vendedor.repository.VendedorRepository;
 import lombok.RequiredArgsConstructor;
@@ -29,7 +29,6 @@ import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.HashMap;
 
 /**
  * Escribe los datos completados por el distribuidor en el Excel de ruta,
@@ -43,7 +42,7 @@ import java.util.HashMap;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class RutaExcelExportadorService {
+public class RutaExcelExportadorService extends AbstractExcelParser {
 
     private final SesionRutaRepository sesionRutaRepo;
     private final SesionRutaRegistroRepository registroRepo;
@@ -61,7 +60,7 @@ public class RutaExcelExportadorService {
 
         byte[] excelModificado;
         try (Workbook wb = WorkbookFactory.create(new ByteArrayInputStream(sesion.getArchivoExcel()))) {
-            Sheet sheet = obtenerHoja(wb);
+            Sheet sheet = obtenerHoja(wb, RutaColumnaEnum.HOJA.getValor());
             Map<String, Integer> idx = construirIndiceColumnas(sheet);
 
             List<SesionRutaRegistro> registrosAGuardar = new ArrayList<>();
@@ -198,36 +197,5 @@ public class RutaExcelExportadorService {
         }
         log.warn("No se pudo parsear la fecha '{}'. Se guardará como null.", fechaStr);
         return null;
-    }
-
-    // ---------------------------------------------------------------------------
-    // Helpers de lectura de hoja/columnas (idéntico al lector)
-    // ---------------------------------------------------------------------------
-
-    private Sheet obtenerHoja(Workbook wb) {
-        int idx = wb.getSheetIndex(RutaColumnaEnum.HOJA.getValor());
-        if (idx < 0) {
-            throw new ExcelProcessingException(
-                "La hoja '" + RutaColumnaEnum.HOJA.getValor() + "' no fue encontrada en el Excel.", List.of()
-            );
-        }
-        return wb.getSheetAt(idx);
-    }
-
-    private Map<String, Integer> construirIndiceColumnas(Sheet sheet) {
-        Row header = sheet.getRow(0);
-        if (header == null) {
-            throw new ExcelProcessingException("El Excel no tiene fila de encabezados.", List.of());
-        }
-        Map<String, Integer> idx = new HashMap<>();
-        for (Cell c : header) {
-            if (c.getCellType() == CellType.STRING) {
-                String nombre = c.getStringCellValue();
-                if (nombre != null && !nombre.isBlank()) {
-                    idx.put(TextoUtil.normalize(nombre), c.getColumnIndex());
-                }
-            }
-        }
-        return idx;
     }
 }
