@@ -8,6 +8,7 @@ import com.eliasgonzalez.cartones.ruta.service.RutaExcelExportadorService;
 import com.eliasgonzalez.cartones.ruta.service.RutaExcelLectorService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -25,6 +26,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/ruta")
 @RequiredArgsConstructor
+@Slf4j
 public class RutaController {
 
     private final RutaExcelLectorService rutaExcelLectorService;
@@ -37,6 +39,7 @@ public class RutaController {
     @PostMapping("/carga")
     public ResponseEntity<CargaRutaResponseDTO> cargarExcel(
             @RequestParam("file") MultipartFile file) {
+        log.debug("POST /api/ruta/carga - archivo: {}", file.getOriginalFilename());
         CargaRutaResponseDTO response = rutaExcelLectorService.cargarExcel(file);
         return ResponseEntity.ok(response);
     }
@@ -49,6 +52,7 @@ public class RutaController {
     public ResponseEntity<List<RegistroRutaDTO>> obtenerRegistros(
             @PathVariable String sesionId,
             @Valid @RequestBody FiltroFechaRequestDTO request) {
+        log.debug("POST /api/ruta/{}/registros - fechas: {}", sesionId, request.getFechas());
         List<RegistroRutaDTO> registros = rutaExcelLectorService.filtrarPorFechas(sesionId, request.getFechas());
         return ResponseEntity.ok(registros);
     }
@@ -61,6 +65,7 @@ public class RutaController {
     public ResponseEntity<byte[]> exportar(
             @PathVariable String sesionId,
             @Valid @RequestBody ExportarRutaRequestDTO request) {
+        log.debug("POST /api/ruta/{}/exportar - {} registros", sesionId, request.getRegistros().size());
         byte[] excelBytes = rutaExcelExportadorService.exportar(sesionId, request.getRegistros());
 
         HttpHeaders headers = new HttpHeaders();

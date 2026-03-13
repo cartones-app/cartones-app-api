@@ -28,12 +28,14 @@ public class AdminExclusionRutaController {
     // Listar todas (activas e inactivas)
     @GetMapping
     public ResponseEntity<List<ExclusionRutaResponseDTO>> listar() {
+        log.debug("GET /api/admin/ruta/exclusiones");
         return ResponseEntity.ok(exclusionService.listarTodas());
     }
 
     // Crear una nueva exclusión
     @PostMapping
     public ResponseEntity<ExclusionRutaResponseDTO> crear(@Valid @RequestBody ExclusionRutaRequestDTO request) {
+        log.debug("POST /api/admin/ruta/exclusiones - nombre: {}", request.getNombre());
         return ResponseEntity.ok(exclusionService.crear(request));
     }
 
@@ -43,12 +45,14 @@ public class AdminExclusionRutaController {
             @PathVariable Long id,
             @Valid @RequestBody ExclusionRutaRequestDTO request
     ) {
+        log.debug("PUT /api/admin/ruta/exclusiones/{}", id);
         return ResponseEntity.ok(exclusionService.actualizar(id, request));
     }
 
     // Eliminar permanentemente
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> eliminar(@PathVariable Long id) {
+        log.debug("DELETE /api/admin/ruta/exclusiones/{}", id);
         exclusionService.eliminar(id);
         return ResponseEntity.noContent().build();
     }

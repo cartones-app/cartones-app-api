@@ -32,12 +32,14 @@ public class AdminSesionRutaController {
             @RequestParam(required = false) String estado,
             @RequestParam(required = false) String createdBy
     ) {
+        log.debug("GET /api/admin/ruta/sesiones - estado: {}, createdBy: {}", estado, createdBy);
         return ResponseEntity.ok(sesionRutaService.listarSesiones(estado, createdBy));
     }
 
     // Detalle de una sesión
     @GetMapping("/sesiones/{sesionId}")
     public ResponseEntity<SesionRutaResponseDTO> obtenerSesion(@PathVariable String sesionId) {
+        log.debug("GET /api/admin/ruta/sesiones/{}", sesionId);
         return ResponseEntity.ok(sesionRutaService.obtenerSesion(sesionId));
     }
 
@@ -49,6 +51,8 @@ public class AdminSesionRutaController {
             @RequestParam(required = false) String vendedorNombre,
             @RequestParam(required = false) Boolean camposIncompletos
     ) {
+        log.debug("GET /api/admin/ruta/sesiones/{}/registros - completado: {}, vendedorNombre: {}, camposIncompletos: {}",
+            sesionId, completado, vendedorNombre, camposIncompletos);
         return ResponseEntity.ok(
             sesionRutaService.listarRegistros(sesionId, completado, vendedorNombre, camposIncompletos)
         );
@@ -57,6 +61,7 @@ public class AdminSesionRutaController {
     // Eliminar una sesión y todos sus registros (bloqueado si está ACTIVA)
     @DeleteMapping("/sesiones/{sesionId}")
     public ResponseEntity<Void> eliminarSesion(@PathVariable String sesionId) {
+        log.debug("DELETE /api/admin/ruta/sesiones/{}", sesionId);
         sesionRutaService.eliminarSesion(sesionId);
         return ResponseEntity.noContent().build();
     }
@@ -64,6 +69,7 @@ public class AdminSesionRutaController {
     // Eliminar múltiples sesiones en un solo request
     @DeleteMapping("/sesiones")
     public ResponseEntity<Void> eliminarSesiones(@Valid @RequestBody EliminarSesionesRequestDTO request) {
+        log.debug("DELETE /api/admin/ruta/sesiones - ids: {}", request.getSesionIds());
         sesionRutaService.eliminarSesiones(request.getSesionIds());
         return ResponseEntity.noContent().build();
     }
@@ -71,6 +77,7 @@ public class AdminSesionRutaController {
     // Eliminar un registro individual
     @DeleteMapping("/registros/{id}")
     public ResponseEntity<Void> eliminarRegistro(@PathVariable Long id) {
+        log.debug("DELETE /api/admin/ruta/registros/{}", id);
         sesionRutaService.eliminarRegistro(id);
         return ResponseEntity.noContent().build();
     }

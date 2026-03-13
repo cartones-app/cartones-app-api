@@ -31,12 +31,14 @@ public class DistribucionController {
             @Valid @RequestBody SimulacionRequestDTO solicitud,
             @PathVariable String procesoId) {
 
+        log.debug("POST /api/distribuciones/{}/simular", procesoId);
         log.info("Iniciando simulación para el proceso ID: {}", procesoId);
         return ResponseEntity.ok(gestionDistribucion.procesarSimulacion(procesoId, solicitud));
     }
 
     @GetMapping("/{procesoId}/pdfs")
     public ResponseEntity<Resource> descargar(@PathVariable String procesoId) throws IOException {
+        log.debug("GET /api/distribuciones/{}/pdfs", procesoId);
 
         Resource zip = gestionArchivoPdf.generarPaqueteZip(procesoId);
 

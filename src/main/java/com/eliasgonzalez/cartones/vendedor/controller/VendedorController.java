@@ -25,7 +25,7 @@ public class VendedorController {
     public ResponseEntity<List<VendedorResponseDTO>> listarVendedoresValidos (
             @PathVariable (name = "procesoId") String procesoIdRecibido
     ){
-
+        log.debug("GET /api/vendedores/{}", procesoIdRecibido);
         return ResponseEntity.ok(vendedorService.listarVendedoresValidos(procesoIdRecibido));
     }
 
@@ -33,6 +33,7 @@ public class VendedorController {
     public ResponseEntity<FilasIgnoradasDTO> cargarVendedoresDesdeExcel(
             @RequestParam("file") MultipartFile file) {
 
+        log.debug("POST /api/vendedores/carga - archivo: {}", file != null ? file.getOriginalFilename() : "null");
         // PRE-VALIDACIÓN: Antes de tocar el InputStream
         if (file == null || file.isEmpty()) {
             log.error("El archivo recibido es nulo o está vacío.");
