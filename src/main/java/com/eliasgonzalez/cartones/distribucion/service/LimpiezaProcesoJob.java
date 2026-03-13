@@ -1,4 +1,4 @@
-package com.eliasgonzalez.cartones.zip;
+package com.eliasgonzalez.cartones.distribucion.service;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -9,11 +9,11 @@ import java.util.Comparator;
 import java.util.stream.Stream;
 
 @Component
-public class LimpiezaStorageJob {
+public class LimpiezaProcesoJob {
 
     private final Path storageDir;
 
-    public LimpiezaStorageJob(@Value("${app.storage.directory:storage}") String storageDirectory) {
+    public LimpiezaProcesoJob(@Value("${app.storage.directory:storage}") String storageDirectory) {
         this.storageDir = Paths.get(storageDirectory);
     }
 

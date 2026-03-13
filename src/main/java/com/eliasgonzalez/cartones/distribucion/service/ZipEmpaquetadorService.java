@@ -1,4 +1,4 @@
-package com.eliasgonzalez.cartones.zip;
+package com.eliasgonzalez.cartones.distribucion.service;
 
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
@@ -8,7 +8,7 @@ import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
-public class ZipService {
+public class ZipEmpaquetadorService {
 
     /**
      * Crea un archivo ZIP en memoria a partir de un mapa de archivos.

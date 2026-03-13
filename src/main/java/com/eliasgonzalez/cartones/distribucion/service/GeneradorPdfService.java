@@ -11,7 +11,7 @@ import com.eliasgonzalez.cartones.common.exception.FileProcessingException;
 import com.eliasgonzalez.cartones.common.exception.UnprocessableEntityException;
 import com.eliasgonzalez.cartones.vendedor.domain.ProcesoDistribucionVendedor;
 import com.eliasgonzalez.cartones.vendedor.repository.ProcesoDistribucionVendedorRepository;
-import com.eliasgonzalez.cartones.zip.ZipService;
+import com.eliasgonzalez.cartones.distribucion.service.ZipEmpaquetadorService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.Resource;
@@ -64,7 +64,7 @@ public class GeneradorPdfService implements IGeneradorPdfService {
             archivos.put("Imprimir_etiquetas.pdf", pdfsGenerados.get(ETIQUETAS));
             archivos.put("Resumen_entrega.pdf", pdfsGenerados.get(RESUMEN));
 
-            return ZipService.crearZip(archivos);
+            return ZipEmpaquetadorService.crearZip(archivos);
 
         } catch (IOException e) {
             throw new FileProcessingException("Error generando ZIP", List.of(e.getMessage()));
