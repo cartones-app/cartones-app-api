@@ -105,7 +105,8 @@ public class SecurityConfig {
         // Métodos HTTP permitidos
         configuration.setAllowedMethods(Arrays.asList(
                 "GET",
-                "POST"
+                "POST",
+                "OPTIONS"
         ));
 
         // Headers permitidos
