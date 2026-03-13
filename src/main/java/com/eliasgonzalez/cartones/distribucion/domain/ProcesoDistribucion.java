@@ -1,6 +1,6 @@
-package com.eliasgonzalez.cartones.pdf.entity;
+package com.eliasgonzalez.cartones.distribucion.domain;
 
-import com.eliasgonzalez.cartones.pdf.enums.EstadoEnum;
+import com.eliasgonzalez.cartones.distribucion.domain.enums.EstadoEnum;
 import com.eliasgonzalez.cartones.common.audit.EntidadAuditable;
 import jakarta.persistence.*;
 import lombok.*;

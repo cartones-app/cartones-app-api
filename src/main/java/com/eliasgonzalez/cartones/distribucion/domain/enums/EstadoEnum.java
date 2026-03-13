@@ -1,4 +1,4 @@
-package com.eliasgonzalez.cartones.pdf.enums;
+package com.eliasgonzalez.cartones.distribucion.domain.enums;
 
 import com.fasterxml.jackson.annotation.JsonValue;
 import lombok.AllArgsConstructor;

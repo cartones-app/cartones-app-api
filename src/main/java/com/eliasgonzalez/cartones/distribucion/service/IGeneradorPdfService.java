@@ -1,13 +1,13 @@
-package com.eliasgonzalez.cartones.pdf.interfaces;
+package com.eliasgonzalez.cartones.distribucion.service;
 
-import com.eliasgonzalez.cartones.pdf.dto.VendedorSimuladoDTO;
-import com.eliasgonzalez.cartones.pdf.entity.ProcesoDistribucion;
+import com.eliasgonzalez.cartones.distribucion.controller.dto.VendedorSimuladoDTO;
+import com.eliasgonzalez.cartones.distribucion.domain.ProcesoDistribucion;
 import org.springframework.core.io.Resource;
 
 import java.time.LocalDate;
 import java.util.List;
 
-public interface IPdfService {
+public interface IGeneradorPdfService {
 
     Resource obtenerZipPdfs(
             String procesoIdRecibido,

@@ -1,7 +1,7 @@
 package com.eliasgonzalez.cartones.vendedor.service;
 
-import com.eliasgonzalez.cartones.pdf.entity.ProcesoDistribucion;
-import com.eliasgonzalez.cartones.pdf.interfaces.ProcesoDistribucionRepository;
+import com.eliasgonzalez.cartones.distribucion.domain.ProcesoDistribucion;
+import com.eliasgonzalez.cartones.distribucion.repository.ProcesoDistribucionRepository;
 import com.eliasgonzalez.cartones.vendedor.controller.dto.CargaVendedoresResponseDTO;
 import com.eliasgonzalez.cartones.vendedor.controller.dto.VendedorResponseDTO;
 import com.eliasgonzalez.cartones.vendedor.domain.ProcesoDistribucionVendedor;

@@ -1,4 +1,4 @@
-package com.eliasgonzalez.cartones.pdf.dto;
+package com.eliasgonzalez.cartones.distribucion.service.dto;
 
 import lombok.*;
 import java.util.Map;

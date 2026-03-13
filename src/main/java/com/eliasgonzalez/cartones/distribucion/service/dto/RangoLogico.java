@@ -1,4 +1,4 @@
-package com.eliasgonzalez.cartones.pdf.dto;
+package com.eliasgonzalez.cartones.distribucion.service.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;

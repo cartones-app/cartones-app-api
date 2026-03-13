@@ -1,15 +1,15 @@
-package com.eliasgonzalez.cartones.pdf.mapper;
+package com.eliasgonzalez.cartones.distribucion.mapper;
 
-import com.eliasgonzalez.cartones.pdf.dto.EtiquetaDTO;
-import com.eliasgonzalez.cartones.pdf.dto.ResumenDTO;
-import com.eliasgonzalez.cartones.pdf.dto.VendedorSimuladoDTO;
+import com.eliasgonzalez.cartones.distribucion.service.dto.EtiquetaDTO;
+import com.eliasgonzalez.cartones.distribucion.service.dto.ResumenDTO;
+import com.eliasgonzalez.cartones.distribucion.controller.dto.VendedorSimuladoDTO;
 import com.eliasgonzalez.cartones.vendedor.domain.ProcesoDistribucionVendedor;
 
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.*;
 
-public class PdfMapper {
+public class DistribucionMapper {
 
     public static List<EtiquetaDTO> toEtiquetaDTOs(
             List<VendedorSimuladoDTO> vendedorSimuladoDTOs,

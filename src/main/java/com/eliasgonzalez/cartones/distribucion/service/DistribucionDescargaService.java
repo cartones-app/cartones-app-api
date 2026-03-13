@@ -1,9 +1,9 @@
-package com.eliasgonzalez.cartones.pdf.service;
+package com.eliasgonzalez.cartones.distribucion.service;
 
-import com.eliasgonzalez.cartones.pdf.component.SaveInMemoryTemp;
-import com.eliasgonzalez.cartones.pdf.entity.ProcesoDistribucion;
-import com.eliasgonzalez.cartones.pdf.interfaces.IPdfService;
-import com.eliasgonzalez.cartones.pdf.interfaces.ProcesoDistribucionRepository;
+import com.eliasgonzalez.cartones.distribucion.component.SimulacionCache;
+import com.eliasgonzalez.cartones.distribucion.domain.ProcesoDistribucion;
+import com.eliasgonzalez.cartones.distribucion.service.IGeneradorPdfService;
+import com.eliasgonzalez.cartones.distribucion.repository.ProcesoDistribucionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
@@ -11,12 +11,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
-public class GestionArchivoPdfService {
+public class DistribucionDescargaService {
 
-    private final IPdfService pdfService;
-    private final SaveInMemoryTemp saveInMemoryTemp;
+    private final IGeneradorPdfService pdfService;
+    private final SimulacionCache saveInMemoryTemp;
     private final ProcesoDistribucionRepository procesoDistribucionRepo;
-    private final GestionDistribucionService gestionDistribucionService;
+    private final DistribucionOrquestadorService gestionDistribucionService;
 
     @Transactional
     public Resource generarPaqueteZip(String procesoId) {
@@ -30,7 +30,7 @@ public class GestionArchivoPdfService {
             saveInMemoryTemp.getFechaSorteoTelebingo()
         );
 
-        ProcesoIdService.VerificandoToCompletado(procesoId, proceso);
+        ProcesoEstadoService.VerificandoToCompletado(procesoId, proceso);
         procesoDistribucionRepo.save(proceso);
 
         return zip;

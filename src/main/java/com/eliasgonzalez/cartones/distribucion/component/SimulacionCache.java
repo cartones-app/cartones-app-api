@@ -1,6 +1,6 @@
-package com.eliasgonzalez.cartones.pdf.component;
+package com.eliasgonzalez.cartones.distribucion.component;
 
-import com.eliasgonzalez.cartones.pdf.dto.VendedorSimuladoDTO;
+import com.eliasgonzalez.cartones.distribucion.controller.dto.VendedorSimuladoDTO;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.stereotype.Component;
@@ -10,7 +10,7 @@ import java.util.List;
 
 @Component
 @Getter @Setter
-public class SaveInMemoryTemp {
+public class SimulacionCache {
 
     private List<VendedorSimuladoDTO> vendedorSimuladoDTOs;
     private LocalDate fechaSorteoSenete;

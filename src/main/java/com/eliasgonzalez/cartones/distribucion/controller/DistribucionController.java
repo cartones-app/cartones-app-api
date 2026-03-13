@@ -1,9 +1,9 @@
-package com.eliasgonzalez.cartones.pdf.controller;
+package com.eliasgonzalez.cartones.distribucion.controller;
 
-import com.eliasgonzalez.cartones.pdf.dto.SimulacionRequestDTO;
-import com.eliasgonzalez.cartones.pdf.dto.VendedorSimuladoDTO;
-import com.eliasgonzalez.cartones.pdf.service.GestionArchivoPdfService;
-import com.eliasgonzalez.cartones.pdf.service.GestionDistribucionService;
+import com.eliasgonzalez.cartones.distribucion.controller.dto.SimulacionRequestDTO;
+import com.eliasgonzalez.cartones.distribucion.controller.dto.VendedorSimuladoDTO;
+import com.eliasgonzalez.cartones.distribucion.service.DistribucionDescargaService;
+import com.eliasgonzalez.cartones.distribucion.service.DistribucionOrquestadorService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,8 +23,8 @@ import java.util.List;
 @CrossOrigin(origins = "${app.cors.origins}")
 public class DistribucionController {
 
-    private final GestionDistribucionService gestionDistribucion;
-    private final GestionArchivoPdfService gestionArchivoPdf;
+    private final DistribucionOrquestadorService gestionDistribucion;
+    private final DistribucionDescargaService gestionArchivoPdf;
 
     @PostMapping("/{procesoId}/simular")
     public ResponseEntity<List<VendedorSimuladoDTO>> simular(

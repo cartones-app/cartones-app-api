@@ -1,10 +1,12 @@
-package com.eliasgonzalez.cartones.pdf.service;
+package com.eliasgonzalez.cartones.distribucion.service;
 
-import com.eliasgonzalez.cartones.pdf.dto.*;
-import com.eliasgonzalez.cartones.pdf.entity.ProcesoDistribucion;
-import com.eliasgonzalez.cartones.pdf.enums.EstadoEnum;
-import com.eliasgonzalez.cartones.pdf.interfaces.IPdfService;
-import com.eliasgonzalez.cartones.pdf.mapper.PdfMapper;
+import com.eliasgonzalez.cartones.distribucion.controller.dto.VendedorSimuladoDTO;
+import com.eliasgonzalez.cartones.distribucion.service.dto.EtiquetaDTO;
+import com.eliasgonzalez.cartones.distribucion.service.dto.ResumenDTO;
+import com.eliasgonzalez.cartones.distribucion.domain.ProcesoDistribucion;
+import com.eliasgonzalez.cartones.distribucion.domain.enums.EstadoEnum;
+import com.eliasgonzalez.cartones.distribucion.service.IGeneradorPdfService;
+import com.eliasgonzalez.cartones.distribucion.mapper.DistribucionMapper;
 import com.eliasgonzalez.cartones.common.exception.FileProcessingException;
 import com.eliasgonzalez.cartones.common.exception.UnprocessableEntityException;
 import com.eliasgonzalez.cartones.vendedor.domain.ProcesoDistribucionVendedor;
@@ -27,10 +29,10 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class PdfService implements IPdfService {
+public class GeneradorPdfService implements IGeneradorPdfService {
 
-    private final PdfEtiquetasService pdfEtiquetasService;
-    private final PdfResumenService pdfResumenService;
+    private final EtiquetasPdfService pdfEtiquetasService;
+    private final ResumenPdfService pdfResumenService;
     private final ProcesoDistribucionVendedorRepository procesoVendedorRepo;
 
     private static final String ETIQUETAS = "etiquetas";
@@ -96,8 +98,8 @@ public class PdfService implements IPdfService {
                 (existente, reemplazo) -> existente
             ));
 
-        List<EtiquetaDTO> etiquetasMapeado = PdfMapper.toEtiquetaDTOs(config, registrosMap);
-        List<ResumenDTO> resumenMapeado = PdfMapper.toResumenDTOs(config, registrosMap);
+        List<EtiquetaDTO> etiquetasMapeado = DistribucionMapper.toEtiquetaDTOs(config, registrosMap);
+        List<ResumenDTO> resumenMapeado = DistribucionMapper.toResumenDTOs(config, registrosMap);
 
         CompletableFuture<byte[]> futureEtiquetas = CompletableFuture.supplyAsync(() -> {
             log.debug("Generando PDF de etiquetas en thread: {}", Thread.currentThread());

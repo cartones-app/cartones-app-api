@@ -1,6 +1,6 @@
-package com.eliasgonzalez.cartones.pdf.interfaces;
+package com.eliasgonzalez.cartones.distribucion.repository;
 
-import com.eliasgonzalez.cartones.pdf.entity.ProcesoDistribucion;
+import com.eliasgonzalez.cartones.distribucion.domain.ProcesoDistribucion;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

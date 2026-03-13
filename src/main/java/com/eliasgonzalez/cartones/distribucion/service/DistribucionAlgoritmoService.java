@@ -1,7 +1,10 @@
-package com.eliasgonzalez.cartones.pdf.service;
+package com.eliasgonzalez.cartones.distribucion.service;
 
-import com.eliasgonzalez.cartones.pdf.dto.*;
-import com.eliasgonzalez.cartones.pdf.dto.RangoLogico;
+import com.eliasgonzalez.cartones.distribucion.controller.dto.SimulacionRequestDTO;
+import com.eliasgonzalez.cartones.distribucion.controller.dto.VendedorSimuladoDTO;
+import com.eliasgonzalez.cartones.distribucion.controller.dto.VendedorInputDTO;
+import com.eliasgonzalez.cartones.distribucion.controller.dto.RangoCortadoDTO;
+import com.eliasgonzalez.cartones.distribucion.service.dto.RangoLogico;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -12,7 +15,7 @@ import java.util.stream.Collectors;
 @Service
 @Slf4j
 @Transactional
-public class DistribucionService {
+public class DistribucionAlgoritmoService {
 
     // Margen amplio para permitir saltos grandes si el pool se genera automáticamente
     private static final int MARGEN_SEGURIDAD = 100;

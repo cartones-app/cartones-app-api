@@ -1,6 +1,6 @@
-package com.eliasgonzalez.cartones.pdf.service;
+package com.eliasgonzalez.cartones.distribucion.service;
 
-import com.eliasgonzalez.cartones.pdf.dto.ResumenDTO;
+import com.eliasgonzalez.cartones.distribucion.service.dto.ResumenDTO;
 import com.eliasgonzalez.cartones.common.exception.PdfCreationException;
 import com.lowagie.text.Document;
 import com.lowagie.text.Element;
@@ -16,7 +16,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 @Service
-public class PdfResumenService {
+public class ResumenPdfService {
 
     private static final float MARGEN = 15;
     private static final float PADDING_Y = 6;

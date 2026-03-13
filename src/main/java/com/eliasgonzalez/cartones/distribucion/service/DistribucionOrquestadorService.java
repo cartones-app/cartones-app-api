@@ -1,10 +1,10 @@
-package com.eliasgonzalez.cartones.pdf.service;
+package com.eliasgonzalez.cartones.distribucion.service;
 
-import com.eliasgonzalez.cartones.pdf.component.SaveInMemoryTemp;
-import com.eliasgonzalez.cartones.pdf.dto.SimulacionRequestDTO;
-import com.eliasgonzalez.cartones.pdf.dto.VendedorSimuladoDTO;
-import com.eliasgonzalez.cartones.pdf.entity.ProcesoDistribucion;
-import com.eliasgonzalez.cartones.pdf.interfaces.ProcesoDistribucionRepository;
+import com.eliasgonzalez.cartones.distribucion.component.SimulacionCache;
+import com.eliasgonzalez.cartones.distribucion.controller.dto.SimulacionRequestDTO;
+import com.eliasgonzalez.cartones.distribucion.controller.dto.VendedorSimuladoDTO;
+import com.eliasgonzalez.cartones.distribucion.domain.ProcesoDistribucion;
+import com.eliasgonzalez.cartones.distribucion.repository.ProcesoDistribucionRepository;
 import com.eliasgonzalez.cartones.common.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,18 +16,18 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class GestionDistribucionService {
+public class DistribucionOrquestadorService {
 
-    private final DistribucionService distribucionService;
+    private final DistribucionAlgoritmoService distribucionService;
     private final ProcesoDistribucionRepository procesoDistribucionRepo;
-    private final SaveInMemoryTemp saveInMemoryTemp;
+    private final SimulacionCache saveInMemoryTemp;
 
     @Transactional
     public List<VendedorSimuladoDTO> procesarSimulacion(String procesoId, SimulacionRequestDTO solicitud) {
         ProcesoDistribucion proceso = buscarProceso(procesoId);
         log.info("Proceso encontrado: {}", proceso.getProcesoId());
 
-        ProcesoIdService.PendienteToVerificando(procesoId, proceso);
+        ProcesoEstadoService.PendienteToVerificando(procesoId, proceso);
         procesoDistribucionRepo.save(proceso);
 
         List<VendedorSimuladoDTO> resultado = distribucionService.simularDistribucion(solicitud);

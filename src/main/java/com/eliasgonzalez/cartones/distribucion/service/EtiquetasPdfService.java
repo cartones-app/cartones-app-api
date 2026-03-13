@@ -1,6 +1,6 @@
-package com.eliasgonzalez.cartones.pdf.service;
+package com.eliasgonzalez.cartones.distribucion.service;
 
-import com.eliasgonzalez.cartones.pdf.dto.EtiquetaDTO;
+import com.eliasgonzalez.cartones.distribucion.service.dto.EtiquetaDTO;
 import com.eliasgonzalez.cartones.common.exception.PdfCreationException;
 import com.lowagie.text.Document;
 import com.lowagie.text.Element;
@@ -25,7 +25,7 @@ import java.util.List;
  */
 @Service
 @Transactional
-public class PdfEtiquetasService {
+public class EtiquetasPdfService {
 
     /**
      * Genera un arreglo de bytes (PDF) con las etiquetas formateadas.
