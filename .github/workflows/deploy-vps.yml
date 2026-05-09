@@ -1,0 +1,93 @@
+name: Deploy to VPS (prod)
+
+# Despliega a producción cuando se mergea a master.
+# El runner self-hosted (cartones-runner) corre dentro del propio VPS.
+#
+# Pre-requisitos manuales en el VPS (una sola vez):
+#   1. Runner registrado a nivel de org cartones-app y corriendo como systemd.
+#   2. Usuario del runner pertenece al grupo `docker`.
+#   3. Secretos de DB en /srv/cartones-secrets/db_user.txt y db_password.txt
+#      (chmod 600, owner=runner). El workflow los copia al checkout.
+#
+# Variables / secretos en GitHub:
+#   Settings → Secrets and variables → Actions:
+#     Variables: FRONTEND_URL, POSTGRES_DB, PORT_DB, PORT_BACKEND,
+#                PORT_KEYCLOAK, KEYCLOAK_ADMIN_USER, KEYCLOAK_ISSUER_URI,
+#                KEYCLOAK_JWK_SET_URI, APP_UPLOADS_RATE_LIMIT_RPM
+#     Secrets:   KEYCLOAK_ADMIN_PASSWORD
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-vps
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, linux, arm64]
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verificar entorno
+        run: |
+          docker --version
+          docker compose version
+          uname -m
+
+      - name: Provisionar secretos de DB al checkout
+        run: |
+          mkdir -p secrets_store
+          cp /srv/cartones-secrets/db_user.txt secrets_store/db_user.txt
+          cp /srv/cartones-secrets/db_password.txt secrets_store/db_password.txt
+          chmod 600 secrets_store/db_user.txt secrets_store/db_password.txt
+
+      - name: Generar .env desde GitHub Variables/Secrets
+        run: |
+          cat > .env <<EOF
+          APP_PROFILE=prod
+          DB_DDL_AUTO=validate
+          DB_SHOW_SQL=false
+          LOG_LEVEL=INFO
+          OPEN_IN_VIEW=false
+          FRONTEND_URL=${{ vars.FRONTEND_URL }}
+          POSTGRES_DB=${{ vars.POSTGRES_DB }}
+          PORT_DB=${{ vars.PORT_DB }}
+          PORT_BACKEND=${{ vars.PORT_BACKEND }}
+          PORT_KEYCLOAK=${{ vars.PORT_KEYCLOAK }}
+          KEYCLOAK_ADMIN_USER=${{ vars.KEYCLOAK_ADMIN_USER }}
+          KEYCLOAK_ADMIN_PASSWORD=${{ secrets.KEYCLOAK_ADMIN_PASSWORD }}
+          KEYCLOAK_ISSUER_URI=${{ vars.KEYCLOAK_ISSUER_URI }}
+          KEYCLOAK_JWK_SET_URI=${{ vars.KEYCLOAK_JWK_SET_URI }}
+          APP_UPLOADS_RATE_LIMIT_RPM=${{ vars.APP_UPLOADS_RATE_LIMIT_RPM || '10' }}
+          EOF
+          chmod 600 .env
+
+      - name: Deploy con docker compose
+        run: |
+          docker compose pull --ignore-pull-failures || true
+          docker compose up -d --build --remove-orphans
+
+      - name: Health check del backend
+        run: |
+          PORT="${{ vars.PORT_BACKEND }}"
+          for i in $(seq 1 30); do
+            if curl -sf "http://localhost:${PORT}/actuator/health" > /dev/null; then
+              echo "Backend OK tras ${i} intento(s)"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::Health check del backend falló tras 150s"
+          docker compose ps
+          docker compose logs --tail=80 backend
+          exit 1
+
+      - name: Limpiar imágenes huérfanas
+        if: always()
+        run: docker image prune -f --filter "until=24h" || true
