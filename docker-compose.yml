@@ -7,8 +7,10 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER_FILE: /run/secrets/db_user
       POSTGRES_PASSWORD_FILE: /run/secrets/db_password
-    ports:
-      - "127.0.0.1:${PORT_DB}:5432"
+    # En VPS: sin "ports:" — el backend habla por la red interna del compose.
+    # Para dev local exponer descomentando.
+    # ports:
+    #   - "127.0.0.1:${PORT_DB}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     secrets:
@@ -23,6 +25,11 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
 
   backend:
     build:
@@ -33,7 +40,6 @@ services:
       SERVER_PORT: 9001
       SPRING_PROFILES_ACTIVE: ${APP_PROFILE}
 
-      # Variables inyectadas
       APP_DDL_AUTO: ${DB_DDL_AUTO}
       APP_SHOW_SQL: ${DB_SHOW_SQL}
       APP_LOG_LEVEL: ${LOG_LEVEL}
@@ -43,8 +49,10 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB}
       SPRING_CONFIG_IMPORT: "configtree:/run/secrets/"
 
-    ports:
-      - "${PORT_BACKEND}:9001"
+    # En VPS: sin "ports:" — entra por nginx-proxy (red "proxy").
+    # Para dev local exponer descomentando.
+    # ports:
+    #   - "${PORT_BACKEND}:9001"
     depends_on:
       db:
         condition: service_healthy
@@ -55,6 +63,22 @@ services:
       - source: db_password
         target: spring.datasource.password
         mode: 0444
+    networks:
+      - default
+      - proxy
+    # Healthcheck básico TCP — el código de master no expone /actuator/health.
+    # Cuando se promueva develop a master, cambiar a wget /actuator/health.
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 9001 || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 6
+      start_period: 60s
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "10"
 
 volumes:
   postgres_data:
@@ -64,3 +88,11 @@ secrets:
     file: ./secrets_store/db_user.txt
   db_password:
     file: ./secrets_store/db_password.txt
+
+networks:
+  default:
+    # Red interna del compose para que el backend hable con db.
+  proxy:
+    # Network externa creada por ~/infra-claude/vps (nginx-proxy + cloudflared).
+    # nginx-proxy hace proxy_pass http://cartones_backend:9001 según conf.d/<app>.conf
+    external: true

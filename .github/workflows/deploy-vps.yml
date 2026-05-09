@@ -1,0 +1,103 @@
+name: Deploy to VPS (prod)
+
+# Despliega a producción cuando se pushea a master.
+# El runner self-hosted (cartones-runner) corre en el VPS personal.
+#
+# Topología del VPS (ver /data/notas/vps-nginx-cloudflare.md):
+#   Internet → Cloudflare → tunnel → nginx-proxy → cartones_backend
+# El backend NO expone puertos al host. Joinea la network externa "proxy"
+# que crea ~/infra-claude/vps. Cloudflare DNS y nginx config se manejan
+# manualmente la primera vez.
+#
+# Pre-requisitos en el VPS (una sola vez):
+#   1. Runner registrado a nivel org cartones-app y corriendo (systemd).
+#   2. Usuario del runner en grupo `docker`.
+#   3. Network externa "proxy" creada por ~/infra-claude/vps (ya existe).
+#   4. Secretos de DB en /srv/cartones-secrets/{db_user,db_password}.txt
+#      con chmod 600 y owner=usuario del runner.
+#   5. nginx config: ~/infra-claude/vps/conf.d/cartones-api.conf con
+#      proxy_pass http://cartones_backend:9001 (lo agrega el usuario).
+#   6. Cloudflare tunnel: hostname público apuntando a nginx-proxy:80.
+#
+# Variables y Secrets en GitHub (Settings → Secrets and variables → Actions):
+#   Variables: FRONTEND_URL, POSTGRES_DB
+#   Secrets:   ninguno por ahora (db creds son archivos del VPS).
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-vps-prod
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, linux, arm64]
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verificar entorno
+        run: |
+          docker --version
+          docker compose version
+          uname -m
+          docker network inspect proxy >/dev/null 2>&1 || {
+            echo "::error::La network 'proxy' no existe. Crear ~/infra-claude/vps primero."
+            exit 1
+          }
+
+      - name: Provisionar secretos de DB al checkout
+        run: |
+          mkdir -p secrets_store
+          install -m 600 /srv/cartones-secrets/db_user.txt secrets_store/db_user.txt
+          install -m 600 /srv/cartones-secrets/db_password.txt secrets_store/db_password.txt
+
+      - name: Generar .env desde GitHub Variables
+        run: |
+          cat > .env <<EOF
+          APP_PROFILE=prod
+          DB_DDL_AUTO=validate
+          DB_SHOW_SQL=false
+          LOG_LEVEL=INFO
+          OPEN_IN_VIEW=false
+          FRONTEND_URL=${{ vars.FRONTEND_URL }}
+          POSTGRES_DB=${{ vars.POSTGRES_DB }}
+          EOF
+          chmod 600 .env
+
+      - name: Deploy con docker compose
+        run: |
+          docker compose down --remove-orphans || true
+          docker compose up -d --build
+
+      - name: Esperar que el backend levante
+        run: |
+          for i in $(seq 1 30); do
+            STATUS=$(docker inspect -f '{{.State.Health.Status}}' cartones_backend 2>/dev/null || echo "starting")
+            echo "Intento $i: cartones_backend health=$STATUS"
+            if [ "$STATUS" = "healthy" ]; then
+              echo "OK"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::Backend no llegó a healthy en 150s"
+          docker compose ps
+          docker compose logs --tail=80 backend
+          exit 1
+
+      - name: Smoke test vía nginx-proxy
+        if: vars.HEALTH_URL != ''
+        run: |
+          # Si HEALTH_URL está configurada (ej: https://api.eliasg.uk/...), validar end-to-end.
+          curl -sfI --max-time 10 "${{ vars.HEALTH_URL }}" > /dev/null
+          echo "Smoke test OK"
+
+      - name: Limpiar imágenes huérfanas
+        if: always()
+        run: docker image prune -f --filter "until=24h" || true
