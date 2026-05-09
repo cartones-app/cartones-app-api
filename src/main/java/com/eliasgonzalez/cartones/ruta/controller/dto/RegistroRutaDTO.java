@@ -1,5 +1,6 @@
 package com.eliasgonzalez.cartones.ruta.controller.dto;
 
+import jakarta.validation.constraints.Size;
 import lombok.*;
 
 import java.math.BigDecimal;
@@ -40,5 +41,6 @@ public class RegistroRutaDTO {
     private BigDecimal pago2;
 
     // Nota del distribuidor — solo se envía en el request de exportación, nunca en la respuesta de E1
+    @Size(max = 1000, message = "La nota no puede superar 1000 caracteres")
     private String nota;
 }

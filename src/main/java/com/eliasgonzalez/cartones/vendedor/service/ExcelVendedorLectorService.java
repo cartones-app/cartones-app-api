@@ -107,7 +107,9 @@ public class ExcelVendedorLectorService extends AbstractExcelParser {
             if (!filasIgnoradas.isEmpty()) {
                 CargaVendedoresResponseDTO filasIgnoradasDTO = CargaVendedoresResponseDTO.builder()
                     .filasIgnoradas(filasIgnoradas).procesoId(procesoIdCreado).build();
-                log.info(filasIgnoradasDTO.toString());
+                log.info("Carga completada con {} fila(s) ignorada(s) para procesoId={}",
+                        filasIgnoradas.size(), procesoIdCreado);
+                log.debug("Detalle de filas ignoradas: {}", filasIgnoradasDTO);
                 return filasIgnoradasDTO;
             }
 

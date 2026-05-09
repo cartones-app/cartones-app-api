@@ -5,6 +5,7 @@ import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -13,6 +14,7 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
 import java.time.LocalDateTime;
@@ -62,7 +64,9 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleExcelProcessingException(
             ExcelProcessingException ex, HttpServletRequest request) {
         log.error("Error de procesamiento de Excel en {}: {}", request.getRequestURI(), ex.getMessage());
-        if (isDevProfile()) log.debug("Detalles del error Excel:", ex);
+        log.debug("Detalles del error Excel:", ex);
+        // errorDetails se devuelve siempre: son mensajes de validación user-facing
+        // (fila, vendedor, columna inválida) que el usuario necesita para corregir su Excel.
         ErrorResponse response = buildErrorResponse(HttpStatus.UNPROCESSABLE_ENTITY,
                 "Error de Procesamiento de Excel", ex.getMessage(), ex.getErrorDetails(), request);
         return new ResponseEntity<>(response, HttpStatus.UNPROCESSABLE_ENTITY);
@@ -175,6 +179,31 @@ public class GlobalExceptionHandler {
         ErrorResponse response = buildErrorResponse(HttpStatus.UNAUTHORIZED,
                 "Error de Autenticación", message, List.of(), request);
         return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataIntegrityViolationException(
+            DataIntegrityViolationException ex, HttpServletRequest request) {
+        log.warn("Violación de integridad en {}: {}", request.getRequestURI(), ex.getMostSpecificCause().getMessage());
+        log.debug("Detalle de DataIntegrityViolationException:", ex);
+        String message = isDevProfile()
+                ? "Conflicto de integridad: " + ex.getMostSpecificCause().getMessage()
+                : "El recurso entra en conflicto con datos existentes (duplicado o referencia inválida).";
+        ErrorResponse response = buildErrorResponse(HttpStatus.CONFLICT,
+                "Conflicto de Integridad", message, List.of(), request);
+        return new ResponseEntity<>(response, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErrorResponse> handleMaxUploadSizeExceededException(
+            MaxUploadSizeExceededException ex, HttpServletRequest request) {
+        log.warn("Tamaño máximo de archivo excedido en {}: {} bytes",
+                request.getRequestURI(), ex.getMaxUploadSize());
+        log.debug("Detalle de MaxUploadSizeExceededException:", ex);
+        ErrorResponse response = buildErrorResponse(HttpStatus.PAYLOAD_TOO_LARGE,
+                "Archivo demasiado grande",
+                "El archivo enviado supera el tamaño máximo permitido.", List.of(), request);
+        return new ResponseEntity<>(response, HttpStatus.PAYLOAD_TOO_LARGE);
     }
 
     @ExceptionHandler(Exception.class)
