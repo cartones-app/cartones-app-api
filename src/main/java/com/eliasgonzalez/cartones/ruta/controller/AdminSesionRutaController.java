@@ -8,6 +8,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -16,10 +17,15 @@ import java.util.List;
  * Endpoints de administración para el historial de sesiones de recorrido de ruta.
  * Solo accesible por el rol ADMIN.
  * Permite ver, filtrar y eliminar sesiones y registros individuales.
+ *
+ * Defensa en capas: además del path-based `/api/admin/**` en SecurityConfig,
+ * se exige hasRole('ADMIN') a nivel método para que un eventual refactor de
+ * ruta no destape los endpoints accidentalmente.
  */
 @RestController
 @RequestMapping("/api/admin/ruta")
 @RequiredArgsConstructor
+@PreAuthorize("hasRole('ADMIN')")
 @Slf4j
 public class AdminSesionRutaController {
 
