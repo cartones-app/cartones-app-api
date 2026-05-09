@@ -7,6 +7,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -15,10 +16,14 @@ import java.util.List;
  * Endpoints de administración para la lista de exclusiones del flujo de ruta.
  * Solo accesible por el rol ADMIN.
  * Ejemplo: RECIBO DE CARTONES, VENTA LOCAL son pre-cargadas pero editables.
+ *
+ * Defensa en capas: además del path-based `/api/admin/**` en SecurityConfig,
+ * se exige hasRole('ADMIN') a nivel método.
  */
 @RestController
 @RequestMapping("/api/admin/ruta/exclusiones")
 @RequiredArgsConstructor
+@PreAuthorize("hasRole('ADMIN')")
 @Slf4j
 public class AdminExclusionRutaController {
 
