@@ -65,16 +65,32 @@ public class RutaExcelExportadorService extends AbstractExcelParser {
 
             List<SesionRutaRegistro> registrosAGuardar = new ArrayList<>();
 
+            int ultimaFila = sheet.getLastRowNum();
+            List<String> erroresFila = new ArrayList<>();
             for (RegistroRutaDTO dto : registros) {
-                Row row = sheet.getRow(dto.getNumeroFila());
+                int fila = dto.getNumeroFila();
+                if (fila < 0 || fila > ultimaFila) {
+                    erroresFila.add(String.format(
+                        "numeroFila=%d fuera de rango [0, %d] (vendedor: '%s')",
+                        fila, ultimaFila, dto.getNombre()));
+                    continue;
+                }
+                Row row = sheet.getRow(fila);
                 if (row == null) {
-                    log.warn("Fila {} no encontrada en el Excel (vendedor: '{}'). Se omite.",
-                        dto.getNumeroFila(), dto.getNombre());
+                    erroresFila.add(String.format(
+                        "Fila %d vacía o ausente en el Excel (vendedor: '%s')",
+                        fila, dto.getNombre()));
                     continue;
                 }
 
                 escribirColumnasEntrada(row, idx, dto);
                 registrosAGuardar.add(construirRegistro(sesion, dto));
+            }
+
+            if (!erroresFila.isEmpty()) {
+                log.warn("Sesión {}: {} registro(s) con fila inválida.", sesionId, erroresFila.size());
+                throw new ExcelProcessingException(
+                    "Hay registros con número de fila inválido para esta sesión.", erroresFila);
             }
 
             registroRepo.saveAll(registrosAGuardar);

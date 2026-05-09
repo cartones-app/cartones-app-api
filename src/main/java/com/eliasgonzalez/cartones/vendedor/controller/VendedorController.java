@@ -1,6 +1,6 @@
 package com.eliasgonzalez.cartones.vendedor.controller;
 
-import com.eliasgonzalez.cartones.common.exception.ExcelProcessingException;
+import com.eliasgonzalez.cartones.common.util.MultipartFileValidator;
 import com.eliasgonzalez.cartones.vendedor.controller.dto.CargaVendedoresResponseDTO;
 import com.eliasgonzalez.cartones.vendedor.controller.dto.VendedorResponseDTO;
 import com.eliasgonzalez.cartones.vendedor.service.IVendedorService;
@@ -33,11 +33,7 @@ public class VendedorController {
             @RequestParam("file") MultipartFile file) {
 
         log.debug("POST /api/vendedores/carga - archivo: {}", file != null ? file.getOriginalFilename() : "null");
-        // PRE-VALIDACIÓN: Antes de tocar el InputStream
-        if (file == null || file.isEmpty()) {
-            log.error("El archivo recibido es nulo o está vacío.");
-            throw new ExcelProcessingException("El archivo recibido es nulo o está vacío.", List.of());
-        }
+        MultipartFileValidator.validarXlsx(file);
 
         String procesoIdCreado = vendedorService.iniciarProceso();
         CargaVendedoresResponseDTO filasIgnoradas = vendedorService.procesarExcel(file, procesoIdCreado);
