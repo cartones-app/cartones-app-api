@@ -79,3 +79,6 @@ mongo_data/
 # =================================================================
 /coverage/
 *.exec
+
+# Claude Code internal state
+.claude/
