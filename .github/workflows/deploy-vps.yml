@@ -57,8 +57,11 @@ jobs:
           install -m 600 /srv/cartones-secrets/db_user.txt secrets_store/db_user.txt
           install -m 600 /srv/cartones-secrets/db_password.txt secrets_store/db_password.txt
 
-      - name: Generar .env desde GitHub Variables
+      - name: Generar .env desde GitHub Variables + secretos del VPS
         run: |
+          DB_USER=$(cat /srv/cartones-secrets/db_user.txt)
+          DB_PASSWORD=$(cat /srv/cartones-secrets/db_password.txt)
+          umask 077
           cat > .env <<EOF
           APP_PROFILE=prod
           DB_DDL_AUTO=validate
@@ -67,8 +70,9 @@ jobs:
           OPEN_IN_VIEW=false
           FRONTEND_URL=${{ vars.FRONTEND_URL }}
           POSTGRES_DB=${{ vars.POSTGRES_DB }}
+          SPRING_DATASOURCE_USERNAME=${DB_USER}
+          SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
           EOF
-          chmod 600 .env
 
       - name: Deploy con docker compose
         run: |
