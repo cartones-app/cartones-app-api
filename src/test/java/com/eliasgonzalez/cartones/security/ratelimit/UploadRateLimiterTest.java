@@ -47,8 +47,7 @@ class UploadRateLimiterTest {
 
         int permitidos = 0;
         for (int i = 0; i < 100; i++) {
-            if (limiter.tryConsume("user-x"))
-                permitidos++;
+            if (limiter.tryConsume("user-x")) permitidos++;
         }
 
         assertThat(permitidos).isEqualTo(100);
