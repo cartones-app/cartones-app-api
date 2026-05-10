@@ -98,12 +98,30 @@ jobs:
           docker compose logs --tail=80 backend
           exit 1
 
-      - name: Smoke test vía nginx-proxy
+      - name: Smoke test funcional end-to-end
+        # Cubre toda la cadena Cloudflare → tunnel → nginx-proxy → backend.
+        # Variable HEALTH_URL: cualquier endpoint público que devuelva 2xx
+        # (ej: https://cartones.eliasg.uk/api/vendedores/test → []).
+        # El healthcheck del contenedor solo prueba TCP local; este step
+        # detecta nginx hung, tunnel mal ruteado, DNS sin propagar, etc.
         if: vars.HEALTH_URL != ''
         run: |
-          # Si HEALTH_URL está configurada (ej: https://api.eliasg.uk/...), validar end-to-end.
-          curl -sfI --max-time 10 "${{ vars.HEALTH_URL }}" > /dev/null
-          echo "Smoke test OK"
+          URL='${{ vars.HEALTH_URL }}'
+          echo "Smoke test → $URL"
+          for i in $(seq 1 12); do
+            CODE=$(curl -s -o /tmp/smoke.body -w '%{http_code}' --max-time 10 "$URL" || echo 000)
+            if [ "$CODE" -ge 200 ] && [ "$CODE" -lt 400 ]; then
+              echo "Smoke test OK tras ${i} intento(s) — HTTP $CODE"
+              head -c 200 /tmp/smoke.body || true
+              exit 0
+            fi
+            echo "Intento $i — HTTP $CODE; reintento en 10s"
+            sleep 10
+          done
+          echo "::error::Smoke test falló tras 120s — última HTTP=$CODE"
+          head -c 500 /tmp/smoke.body || true
+          docker compose logs --tail=40 backend
+          exit 1
 
       - name: Limpiar imágenes huérfanas
         if: always()
