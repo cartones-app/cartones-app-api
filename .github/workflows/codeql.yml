@@ -1,0 +1,58 @@
+name: CodeQL
+
+# Análisis estático de seguridad (SQL injection, XSS, deserialización insegura,
+# etc). Gratis para repos públicos. Reportes en Security tab.
+
+on:
+  push:
+    branches: [next, develop, master]
+  pull_request:
+    branches: [next, develop, master]
+  schedule:
+    # Lunes 06:00 UTC: re-escanea por reglas nuevas que GitHub publica.
+    - cron: "0 6 * * 1"
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      security-events: write
+      packages: read
+      actions: read
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [java-kotlin]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: "temurin"
+          cache: maven
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          # Las queries 'security-extended' incluyen reglas más estrictas que el default.
+          queries: security-extended
+
+      - name: Build
+        run: mvn -B -DskipTests package
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"

@@ -22,6 +22,8 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <openpdf.version>1.3.30</openpdf.version>
         <poi-ooxml.version>5.2.5</poi-ooxml.version>
+        <spotless.version>2.43.0</spotless.version>
+        <palantir-java-format.version>2.50.0</palantir-java-format.version>
     </properties>
 
     <dependencies>
@@ -141,6 +143,38 @@
                 <configuration>
                     <source>21</source>
                     <target>21</target>
+                </configuration>
+            </plugin>
+
+            <!--
+              Spotless: chequeo de formato Java.
+              ratchetFrom origin/develop ⇒ solo verifica archivos cambiados desde
+              develop, no reformatea código existente. Para corregir localmente:
+                mvn spotless:apply
+            -->
+            <plugin>
+                <groupId>com.diffplug.spotless</groupId>
+                <artifactId>spotless-maven-plugin</artifactId>
+                <version>${spotless.version}</version>
+                <configuration>
+                    <!--
+                      ratchetFrom: solo verifica archivos cambiados desde el HEAD
+                      de la rama de integración. No toca código existente en next.
+                      A medida que se promueva (next → develop → master), la regla
+                      sigue activa en cada base.
+                    -->
+                    <ratchetFrom>origin/next</ratchetFrom>
+                    <java>
+                        <palantirJavaFormat>
+                            <version>${palantir-java-format.version}</version>
+                        </palantirJavaFormat>
+                        <removeUnusedImports/>
+                        <importOrder>
+                            <order>java,javax,jakarta,org,com,</order>
+                        </importOrder>
+                        <trimTrailingWhitespace/>
+                        <endWithNewline/>
+                    </java>
                 </configuration>
             </plugin>
         </plugins>
