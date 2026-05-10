@@ -32,7 +32,8 @@ public class DistribucionController {
     private final DistribucionListadoService listadoService;
 
     /**
-     * Lista los procesos de distribución del usuario autenticado, más recientes primero.
+     * Lista los procesos de distribución del usuario autenticado, más recientes
+     * primero.
      * No incluye los BLOBs de PDFs — solo metadata para mostrar en una grilla.
      */
     @GetMapping
@@ -64,8 +65,21 @@ public class DistribucionController {
 
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType("application/zip"))
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"zip-" + procesoId + ".zip\"")
+                .header(
+                        HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"zip-" + sanitizarFilename(procesoId) + ".zip\"")
                 .contentLength(zip.contentLength())
                 .body(zip);
+    }
+
+    /**
+     * Sanitiza el procesoId para usarlo en Content-Disposition. Solo permite
+     * caracteres alfanuméricos, guiones y guión bajo. Defensa en profundidad:
+     * el procesoId server-generated es un UUID, pero esto cierra cualquier
+     * vector de inyección de header si el contrato cambia.
+     */
+    static String sanitizarFilename(String raw) {
+        if (raw == null) return "x";
+        return raw.replaceAll("[^a-zA-Z0-9_-]", "_");
     }
 }

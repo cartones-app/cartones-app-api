@@ -22,8 +22,9 @@ import lombok.extern.slf4j.Slf4j;
  * Solo accesible por rol ADMIN.
  *
  * Defensa en capas: además del filtro path-based en SecurityConfig,
+ * 
  * @PreAuthorize a nivel clase asegura que un eventual refactor de ruta
- * no exponga los endpoints accidentalmente.
+ *               no exponga los endpoints accidentalmente.
  */
 @RestController
 @RequestMapping("/api/admin/distribuciones")
@@ -53,7 +54,9 @@ public class AdminDistribucionController {
         Resource zip = gestionArchivoPdf.generarPaqueteZip(procesoId);
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType("application/zip"))
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"zip-" + procesoId + ".zip\"")
+                .header(
+                        HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"zip-" + DistribucionController.sanitizarFilename(procesoId) + ".zip\"")
                 .contentLength(zip.contentLength())
                 .body(zip);
     }
