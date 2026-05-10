@@ -1,20 +1,25 @@
 package com.eliasgonzalez.cartones.distribucion.controller;
 
-import com.eliasgonzalez.cartones.distribucion.controller.dto.SimulacionRequestDTO;
-import com.eliasgonzalez.cartones.distribucion.controller.dto.VendedorSimuladoDTO;
-import com.eliasgonzalez.cartones.distribucion.service.DistribucionDescargaService;
-import com.eliasgonzalez.cartones.distribucion.service.DistribucionOrquestadorService;
+import java.io.IOException;
+import java.util.List;
+
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+
+import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.core.io.Resource;
 
-import java.io.IOException;
-import java.util.List;
+import com.eliasgonzalez.cartones.distribucion.controller.dto.ProcesoDistribucionResumenDTO;
+import com.eliasgonzalez.cartones.distribucion.controller.dto.SimulacionRequestDTO;
+import com.eliasgonzalez.cartones.distribucion.controller.dto.VendedorSimuladoDTO;
+import com.eliasgonzalez.cartones.distribucion.service.DistribucionDescargaService;
+import com.eliasgonzalez.cartones.distribucion.service.DistribucionListadoService;
+import com.eliasgonzalez.cartones.distribucion.service.DistribucionOrquestadorService;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @RestController
 @RequestMapping("/api/distribuciones")
@@ -24,20 +29,36 @@ public class DistribucionController {
 
     private final DistribucionOrquestadorService gestionDistribucion;
     private final DistribucionDescargaService gestionArchivoPdf;
+    private final DistribucionListadoService listadoService;
+
+    /**
+     * Lista los procesos de distribución del usuario autenticado, más recientes primero.
+     * No incluye los BLOBs de PDFs — solo metadata para mostrar en una grilla.
+     */
+    @GetMapping
+    public ResponseEntity<List<ProcesoDistribucionResumenDTO>> listarPropios() {
+        log.debug("GET /api/distribuciones");
+        return ResponseEntity.ok(listadoService.listarPropios());
+    }
 
     @PostMapping("/{procesoId}/simular")
     public ResponseEntity<List<VendedorSimuladoDTO>> simular(
-            @Valid @RequestBody SimulacionRequestDTO solicitud,
-            @PathVariable String procesoId) {
+            @Valid @RequestBody SimulacionRequestDTO solicitud, @PathVariable String procesoId) {
 
         log.debug("POST /api/distribuciones/{}/simular", procesoId);
         log.info("Iniciando simulación para el proceso ID: {}", procesoId);
         return ResponseEntity.ok(gestionDistribucion.procesarSimulacion(procesoId, solicitud));
     }
 
+    /**
+     * Descarga el ZIP con los PDFs (etiquetas + resumen) del proceso indicado.
+     * Solo el usuario que creó el proceso puede bajarlo (ownership).
+     * Para bypass admin, ver AdminDistribucionController.
+     */
     @GetMapping("/{procesoId}/pdfs")
     public ResponseEntity<Resource> descargar(@PathVariable String procesoId) throws IOException {
         log.debug("GET /api/distribuciones/{}/pdfs", procesoId);
+        listadoService.verificarOwnership(procesoId);
 
         Resource zip = gestionArchivoPdf.generarPaqueteZip(procesoId);
 
