@@ -1,14 +1,17 @@
 package com.eliasgonzalez.cartones.ruta.domain;
 
-import com.eliasgonzalez.cartones.ruta.domain.enums.EstadoSesionEnum;
-import com.eliasgonzalez.cartones.common.audit.EntidadAuditable;
+import java.time.LocalDateTime;
+
 import jakarta.persistence.*;
-import lombok.*;
+
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.type.SqlTypes;
 
-import java.time.LocalDateTime;
+import com.eliasgonzalez.cartones.common.audit.EntidadAuditable;
+import com.eliasgonzalez.cartones.ruta.domain.enums.EstadoSesionEnum;
+
+import lombok.*;
 
 /**
  * Sesión de recorrido de ruta. Registra quién salió, cuándo,

@@ -1,15 +1,16 @@
 package com.eliasgonzalez.cartones.ruta.repository;
 
-import com.eliasgonzalez.cartones.ruta.domain.SesionRuta;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
+import com.eliasgonzalez.cartones.ruta.domain.SesionRuta;
 
 @Repository
 public interface SesionRutaRepository extends JpaRepository<SesionRuta, Long> {
@@ -27,8 +28,8 @@ public interface SesionRutaRepository extends JpaRepository<SesionRuta, Long> {
      * y ABANDONADA — las ACTIVA nunca se archivan automáticamente).
      */
     @Modifying
-    @Query("UPDATE SesionRuta s SET s.archivoExcel = NULL, s.estado = :estadoArchivada, s.deletedAt = :now " +
-            "WHERE s.estado IN :estados AND s.updatedAt < :cutoff")
+    @Query("UPDATE SesionRuta s SET s.archivoExcel = NULL, s.estado = :estadoArchivada, s.deletedAt = :now "
+            + "WHERE s.estado IN :estados AND s.updatedAt < :cutoff")
     int archivarPorEstadoYUpdatedAtBefore(
             @Param("estados") List<String> estados,
             @Param("cutoff") LocalDateTime cutoff,

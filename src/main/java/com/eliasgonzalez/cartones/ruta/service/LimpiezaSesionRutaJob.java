@@ -1,16 +1,18 @@
 package com.eliasgonzalez.cartones.ruta.service;
 
-import com.eliasgonzalez.cartones.ruta.domain.enums.EstadoSesionEnum;
-import com.eliasgonzalez.cartones.ruta.repository.SesionRutaRepository;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import java.time.LocalDateTime;
+import java.util.List;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
-import java.util.List;
+import com.eliasgonzalez.cartones.ruta.domain.enums.EstadoSesionEnum;
+import com.eliasgonzalez.cartones.ruta.repository.SesionRutaRepository;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Job de limpieza de SesionRuta.
@@ -28,9 +30,8 @@ import java.util.List;
 @Slf4j
 public class LimpiezaSesionRutaJob {
 
-    private static final List<String> ESTADOS_ELIMINABLES = List.of(
-            EstadoSesionEnum.COMPLETADA.getValor(),
-            EstadoSesionEnum.ABANDONADA.getValor());
+    private static final List<String> ESTADOS_ELIMINABLES =
+            List.of(EstadoSesionEnum.COMPLETADA.getValor(), EstadoSesionEnum.ABANDONADA.getValor());
 
     private final SesionRutaRepository sesionRutaRepo;
 
@@ -42,10 +43,10 @@ public class LimpiezaSesionRutaJob {
     public void limpiar() {
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime cutoff = now.minusDays(retentionDays);
-        log.info("Archivado SesionRuta: archivando sesiones {} con updatedAt < {}",
-                ESTADOS_ELIMINABLES, cutoff);
+        log.info("Archivado SesionRuta: archivando sesiones {} con updatedAt < {}", ESTADOS_ELIMINABLES, cutoff);
         int archivadas = sesionRutaRepo.archivarPorEstadoYUpdatedAtBefore(
-                ESTADOS_ELIMINABLES, cutoff,
+                ESTADOS_ELIMINABLES,
+                cutoff,
                 com.eliasgonzalez.cartones.ruta.domain.enums.EstadoSesionEnum.ARCHIVADA.getValor(),
                 now);
         if (archivadas > 0) {

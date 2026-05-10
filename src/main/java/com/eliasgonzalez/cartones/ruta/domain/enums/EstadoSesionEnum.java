@@ -6,7 +6,6 @@ import lombok.Getter;
 @Getter
 @AllArgsConstructor
 public enum EstadoSesionEnum {
-
     ACTIVA("ACTIVA"),
     COMPLETADA("COMPLETADA"),
     ABANDONADA("ABANDONADA"),

@@ -1,16 +1,19 @@
 package com.eliasgonzalez.cartones.ruta.controller;
 
-import com.eliasgonzalez.cartones.ruta.controller.dto.ExclusionRutaRequestDTO;
-import com.eliasgonzalez.cartones.ruta.controller.dto.ExclusionRutaResponseDTO;
-import com.eliasgonzalez.cartones.ruta.service.AdminExclusionRutaService;
+import java.util.List;
+
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
+import com.eliasgonzalez.cartones.ruta.controller.dto.ExclusionRutaRequestDTO;
+import com.eliasgonzalez.cartones.ruta.controller.dto.ExclusionRutaResponseDTO;
+import com.eliasgonzalez.cartones.ruta.service.AdminExclusionRutaService;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Endpoints de administración para la lista de exclusiones del flujo de ruta.
@@ -46,9 +49,7 @@ public class AdminExclusionRutaController {
     // Actualizar (renombrar, cambiar descripción o activar/desactivar)
     @PutMapping("/{id}")
     public ResponseEntity<ExclusionRutaResponseDTO> actualizar(
-            @PathVariable Long id,
-            @Valid @RequestBody ExclusionRutaRequestDTO request
-    ) {
+            @PathVariable Long id, @Valid @RequestBody ExclusionRutaRequestDTO request) {
         log.debug("PUT /api/admin/ruta/exclusiones/{}", id);
         return ResponseEntity.ok(exclusionService.actualizar(id, request));
     }

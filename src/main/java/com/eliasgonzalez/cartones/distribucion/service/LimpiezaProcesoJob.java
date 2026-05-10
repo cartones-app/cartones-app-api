@@ -1,15 +1,16 @@
 package com.eliasgonzalez.cartones.distribucion.service;
 
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Component;
-
 import java.io.IOException;
 import java.nio.file.*;
 import java.util.Comparator;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
+
+import lombok.extern.slf4j.Slf4j;
 
 @Component
 @Slf4j
@@ -49,7 +50,10 @@ public class LimpiezaProcesoJob {
             return;
         }
 
-        log.info("Limpieza trimestral completada en '{}': {} elementos borrados, {} errores.",
-                storageDir, borrados.get(), errores.get());
+        log.info(
+                "Limpieza trimestral completada en '{}': {} elementos borrados, {} errores.",
+                storageDir,
+                borrados.get(),
+                errores.get());
     }
 }
