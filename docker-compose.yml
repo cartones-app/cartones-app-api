@@ -47,7 +47,12 @@ services:
       APP_CORS_ORIGINS: ${FRONTEND_URL}
 
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB}
-      SPRING_CONFIG_IMPORT: "configtree:/run/secrets/"
+      # Las credenciales vienen del .env (que el workflow genera leyendo
+      # /srv/cartones-secrets/). Antes se usaba `configtree:/run/secrets/`
+      # con docker secrets, pero el backend corre como user no-root y los
+      # secrets se montan 0400 root:root → AccessDenied.
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
 
     # En VPS: sin "ports:" — entra por nginx-proxy (red "proxy").
     # Para dev local exponer descomentando.
@@ -56,13 +61,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    secrets:
-      - source: db_user
-        target: spring.datasource.username
-        mode: 0444
-      - source: db_password
-        target: spring.datasource.password
-        mode: 0444
     networks:
       - default
       - proxy
