@@ -22,7 +22,7 @@ import lombok.extern.slf4j.Slf4j;
  * Solo accesible por rol ADMIN.
  *
  * Defensa en capas: además del filtro path-based en SecurityConfig,
- * 
+ *
  * @PreAuthorize a nivel clase asegura que un eventual refactor de ruta
  *               no exponga los endpoints accidentalmente.
  */
