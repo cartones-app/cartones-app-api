@@ -21,6 +21,9 @@ import org.springframework.test.util.ReflectionTestUtils;
 import com.eliasgonzalez.cartones.ruta.domain.enums.EstadoSesionEnum;
 import com.eliasgonzalez.cartones.ruta.repository.SesionRutaRepository;
 
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+
 /**
  * Unit tests del LimpiezaSesionRutaJob (cron de archivado).
  *
@@ -34,10 +37,12 @@ class LimpiezaSesionRutaJobTest {
     private SesionRutaRepository repo;
 
     private LimpiezaSesionRutaJob job;
+    private MeterRegistry registry;
 
     @BeforeEach
     void setup() {
-        job = new LimpiezaSesionRutaJob(repo);
+        registry = new SimpleMeterRegistry();
+        job = new LimpiezaSesionRutaJob(repo, registry);
         ReflectionTestUtils.setField(job, "retentionDays", 30);
     }
 
@@ -77,6 +82,38 @@ class LimpiezaSesionRutaJobTest {
 
         // now debe ser >= cutoff (separados por retentionDays).
         assertThat(nowCaptor.getValue()).isAfter(cutoffCaptor.getValue());
+    }
+
+    @Test
+    void limpiar_incrementaMetricasRunsYArchived() {
+        when(repo.archivarPorEstadoYUpdatedAtBefore(anyList(), any(), any(), any()))
+                .thenReturn(7);
+
+        job.limpiar();
+
+        assertThat(registry.counter("cartones.cleanup.sesion_ruta.runs").count())
+                .isEqualTo(1.0);
+        assertThat(registry.counter("cartones.cleanup.sesion_ruta.archived").count())
+                .isEqualTo(7.0);
+        assertThat(registry.counter("cartones.cleanup.sesion_ruta.errors").count())
+                .isZero();
+        assertThat(registry.timer("cartones.cleanup.sesion_ruta.duration").count())
+                .isEqualTo(1L);
+    }
+
+    @Test
+    void limpiar_excepcionDelRepo_incrementaErrorsCounter() {
+        when(repo.archivarPorEstadoYUpdatedAtBefore(anyList(), any(), any(), any()))
+                .thenThrow(new RuntimeException("DB caída"));
+
+        try {
+            job.limpiar();
+        } catch (RuntimeException expected) {
+            // se relanza por contrato del job
+        }
+
+        assertThat(registry.counter("cartones.cleanup.sesion_ruta.errors").count())
+                .isEqualTo(1.0);
     }
 
     @Test
