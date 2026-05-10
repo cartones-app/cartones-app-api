@@ -1,25 +1,34 @@
 package com.eliasgonzalez.cartones.ruta.controller;
 
+import java.util.List;
+
+import jakarta.validation.Valid;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
 import com.eliasgonzalez.cartones.ruta.controller.dto.EliminarSesionesRequestDTO;
 import com.eliasgonzalez.cartones.ruta.controller.dto.SesionRutaRegistroResponseDTO;
 import com.eliasgonzalez.cartones.ruta.controller.dto.SesionRutaResponseDTO;
 import com.eliasgonzalez.cartones.ruta.service.AdminSesionRutaService;
-import jakarta.validation.Valid;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 /**
  * Endpoints de administración para el historial de sesiones de recorrido de ruta.
  * Solo accesible por el rol ADMIN.
  * Permite ver, filtrar y eliminar sesiones y registros individuales.
+ *
+ * Defensa en capas: además del path-based `/api/admin/**` en SecurityConfig,
+ * se exige hasRole('ADMIN') a nivel método para que un eventual refactor de
+ * ruta no destape los endpoints accidentalmente.
  */
 @RestController
 @RequestMapping("/api/admin/ruta")
 @RequiredArgsConstructor
+@PreAuthorize("hasRole('ADMIN')")
 @Slf4j
 public class AdminSesionRutaController {
 
@@ -28,9 +37,7 @@ public class AdminSesionRutaController {
     // Listar sesiones con filtros opcionales
     @GetMapping("/sesiones")
     public ResponseEntity<List<SesionRutaResponseDTO>> listarSesiones(
-            @RequestParam(required = false) String estado,
-            @RequestParam(required = false) String createdBy
-    ) {
+            @RequestParam(required = false) String estado, @RequestParam(required = false) String createdBy) {
         log.debug("GET /api/admin/ruta/sesiones - estado: {}, createdBy: {}", estado, createdBy);
         return ResponseEntity.ok(sesionRutaService.listarSesiones(estado, createdBy));
     }
@@ -48,13 +55,15 @@ public class AdminSesionRutaController {
             @PathVariable String sesionId,
             @RequestParam(required = false) Boolean completado,
             @RequestParam(required = false) String vendedorNombre,
-            @RequestParam(required = false) Boolean camposIncompletos
-    ) {
-        log.debug("GET /api/admin/ruta/sesiones/{}/registros - completado: {}, vendedorNombre: {}, camposIncompletos: {}",
-            sesionId, completado, vendedorNombre, camposIncompletos);
+            @RequestParam(required = false) Boolean camposIncompletos) {
+        log.debug(
+                "GET /api/admin/ruta/sesiones/{}/registros - completado: {}, vendedorNombre: {}, camposIncompletos: {}",
+                sesionId,
+                completado,
+                vendedorNombre,
+                camposIncompletos);
         return ResponseEntity.ok(
-            sesionRutaService.listarRegistros(sesionId, completado, vendedorNombre, camposIncompletos)
-        );
+                sesionRutaService.listarRegistros(sesionId, completado, vendedorNombre, camposIncompletos));
     }
 
     // Eliminar una sesión y todos sus registros (bloqueado si está ACTIVA)

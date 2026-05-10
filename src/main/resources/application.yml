@@ -46,6 +46,14 @@ spring:
     serialization:
       write-dates-as-timestamps: false
 
+  # Límites de multipart (uploads)
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: ${APP_MULTIPART_MAX_FILE_SIZE:10MB}
+      max-request-size: ${APP_MULTIPART_MAX_REQUEST_SIZE:11MB}
+      file-size-threshold: 1MB
+
 # Configuración de CORS
 app:
   cors:

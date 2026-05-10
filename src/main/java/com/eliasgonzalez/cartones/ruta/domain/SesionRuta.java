@@ -1,11 +1,17 @@
 package com.eliasgonzalez.cartones.ruta.domain;
 
-import com.eliasgonzalez.cartones.ruta.domain.enums.EstadoSesionEnum;
-import com.eliasgonzalez.cartones.common.audit.EntidadAuditable;
+import java.time.LocalDateTime;
+
 import jakarta.persistence.*;
-import lombok.*;
+
 import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.type.SqlTypes;
+
+import com.eliasgonzalez.cartones.common.audit.EntidadAuditable;
+import com.eliasgonzalez.cartones.ruta.domain.enums.EstadoSesionEnum;
+
+import lombok.*;
 
 /**
  * Sesión de recorrido de ruta. Registra quién salió, cuándo,
@@ -21,6 +27,7 @@ import org.hibernate.type.SqlTypes;
 @Getter
 @Setter
 @Builder
+@SQLRestriction("deleted_at IS NULL")
 public class SesionRuta extends EntidadAuditable {
 
     @Id
@@ -54,4 +61,13 @@ public class SesionRuta extends EntidadAuditable {
     // Locking optimista para evitar doble exportación concurrente
     @Version
     private Long version;
+
+    /**
+     * Marca de archivado (soft delete). Cuando no es null, la sesión fue
+     * archivada por LimpiezaSesionRutaJob: el archivoExcel fue purgado y
+     * el estado pasó a ARCHIVADA. El @SQLRestriction de la clase oculta
+     * estas filas a las queries normales.
+     */
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
 }
