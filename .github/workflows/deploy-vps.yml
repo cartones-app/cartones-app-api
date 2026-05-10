@@ -64,7 +64,10 @@ jobs:
           umask 077
           cat > .env <<EOF
           APP_PROFILE=prod
-          DB_DDL_AUTO=validate
+          # 'update' porque el código de master no usa Flyway: Hibernate crea
+          # las tablas en el primer arranque. Cuando se promueva develop a
+          # master (Flyway + esquema normalizado), cambiar a 'validate'.
+          DB_DDL_AUTO=update
           DB_SHOW_SQL=false
           LOG_LEVEL=INFO
           OPEN_IN_VIEW=false
