@@ -20,10 +20,10 @@ import com.eliasgonzalez.cartones.support.AbstractPostgresIT;
  * Tests de integración para SecurityConfig.
  *
  * Verifica las reglas de autorización por path:
- *   - permitAll: /swagger-ui/**, /v3/api-docs/**, /actuator/health
- *   - hasRole("ADMIN"): /api/admin/**, /actuator/** (no health)
- *   - hasAnyRole("ADMIN", "DISTRIBUIDOR"): /api/**
- *   - denyAll: cualquier otra ruta
+ * - permitAll: /swagger-ui/**, /v3/api-docs/**, /actuator/health
+ * - hasRole("ADMIN"): /api/admin/**, /actuator/** (no health)
+ * - hasAnyRole("ADMIN", "DISTRIBUIDOR"): /api/**
+ * - denyAll: cualquier otra ruta
  *
  * No carga el flujo Keycloak real — JwtDecoder mockeado y los authorities se
  * inyectan vía postprocessor jwt() de Spring Security Test.
