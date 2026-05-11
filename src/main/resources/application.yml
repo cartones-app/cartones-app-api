@@ -114,10 +114,12 @@ management:
 openflags:
   provider: file
   file:
+    # Override por perfil:
+    #   - default/local: classpath:flags.yml (mvn spring-boot:run resuelve a target/classes/flags.yml)
+    #   - prod: file:/app/flags.yml (extraído por el Dockerfile fuera del JAR;
+    #     openflags-starter no soporta classpath:* dentro de un Spring Boot
+    #     launcher JAR — intenta convertir a Path y rompe).
     path: classpath:flags.yml
-    # Hot reload se desactiva automáticamente cuando el path es classpath:* en
-    # un JAR empaquetado (no hay WatchService sobre el JAR). En desarrollo con
-    # mvn spring-boot:run apunta al target/classes y sí recarga al cambiar.
     watch: true
   metrics:
     enabled: true

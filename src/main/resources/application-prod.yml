@@ -48,12 +48,13 @@ management:
 # ===========================================
 # openflags — prod
 # ===========================================
-# Hot reload OFF en prod: el archivo flags.yml viene dentro del JAR y
-# WatchService sobre rutas internas de un JAR puede tirar
-# UnsupportedOperationException al startup. Para cambios en runtime,
-# montar un volumen con un flags.yml externo y apuntar
-# openflags.file.path a su path absoluto (entonces sí podés activar
-# `watch: true`).
+# El JAR empaquetado por spring-boot-maven-plugin no se puede recorrer
+# como filesystem; el starter de openflags 2.0.0-rc1 falla al intentar
+# resolver classpath:* dentro del launcher JAR. Workaround: el Dockerfile
+# extrae src/main/resources/flags.yml a /app/flags.yml y acá apuntamos
+# a ese path absoluto. Hot reload activo: si en runtime se monta un
+# volumen sobre /app/flags.yml, los cambios se detectan sin redeploy.
 openflags:
   file:
-    watch: false
+    path: file:/app/flags.yml
+    watch: true
