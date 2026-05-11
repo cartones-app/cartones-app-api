@@ -17,8 +17,22 @@ Sistema de gestión para vendedores y cartones de bingo. API REST en Spring Boot
 | PDFs | OpenPDF 1.3.30 |
 | Migraciones | Flyway |
 | Contenedores | Docker / Docker Compose |
-| Producción | Railway (backend + DB) |
-| Frontend | Next.js en Vercel |
+| Staging | Railway (backend + Postgres + Keycloak dedicados) |
+| Producción | VPS Hetzner (Cloudflare Tunnel + nginx-proxy) |
+| Frontend | Next.js en Vercel (staging) / VPS (prod) |
+| CI / Seguridad | GitHub Actions + CodeQL (`security-extended`) |
+
+---
+
+## Modelo de ramas
+
+| Rama | Uso | Despliegue |
+|------|-----|-----------|
+| `master` | Producción | Push → workflow `deploy-vps.yml` → VPS (`cartones.eliasg.uk`) |
+| `develop` | Staging | Push → CI workflows → al pasar, Railway despliega (`backend-staging-de76.up.railway.app`) |
+| `next` | Integración | Solo corre CI + CodeQL; no despliega |
+
+Railway tiene `Wait for CI` activado: solo despliega `develop` cuando los workflows `CI` + `CodeQL` pasan en GitHub.
 
 ---
 
@@ -143,19 +157,38 @@ curl -H "Authorization: Bearer <TOKEN>" http://localhost:9001/api/vendedores/<pr
 | `KEYCLOAK_ADMIN_USER` | `admin` | Usuario admin de Keycloak |
 | `KEYCLOAK_ADMIN_PASSWORD` | `*****` | Contraseña admin de Keycloak |
 
-### Railway (producción)
+### Railway (staging)
+
+Proyecto: `cartones-staging`. Tres servicios:
+
+- `postgres` — `ghcr.io/railwayapp-templates/postgres-ssl:16`, volumen persistente.
+- `keycloak` — `quay.io/keycloak/keycloak:26.1` modo `start-dev`, backend Postgres compartido. URL pública: `https://keycloak-staging-085a.up.railway.app`.
+- `backend` — linkeado al repo en rama `develop`, perfil `prod`. URL pública: `https://backend-staging-de76.up.railway.app`.
+
+Variables del servicio `backend` (referencias a otros servicios via `${{servicio.VAR}}`):
+
+| Variable | Valor |
+|----------|-------|
+| `SPRING_PROFILES_ACTIVE` | `prod` |
+| `SERVER_PORT` | `8080` |
+| `SPRING_DATASOURCE_URL` | `jdbc:postgresql://${{postgres.RAILWAY_PRIVATE_DOMAIN}}:5432/${{postgres.POSTGRES_DB}}` |
+| `SPRING_DATASOURCE_USERNAME` | `${{postgres.POSTGRES_USER}}` |
+| `SPRING_DATASOURCE_PASSWORD` | `${{postgres.POSTGRES_PASSWORD}}` |
+| `APP_CORS_ORIGINS` | `https://cartones-app-web.vercel.app` |
+| `APP_DDL_AUTO` | `update` |
+| `JAVA_TOOL_OPTIONS` | `-XX:MaxRAMPercentage=75.0` |
+| `KEYCLOAK_ISSUER_URI` | `https://keycloak-staging-085a.up.railway.app/realms/cartones` (público — coincide con claim `iss` del JWT) |
+| `KEYCLOAK_JWK_SET_URI` | `http://${{keycloak.RAILWAY_PRIVATE_DOMAIN}}:8080/realms/cartones/protocol/openid-connect/certs` (red privada Railway, sin pasar por edge) |
+
+### VPS (producción)
+
+Variables cargadas desde GitHub Variables/Secrets en `deploy-vps.yml`:
 
 | Variable | Descripción |
 |----------|-------------|
-| `SERVER_PORT` | Puerto del contenedor (ej: `9001`) |
-| `SPRING_PROFILES_ACTIVE` | `prod` |
-| `SPRING_DATASOURCE_URL` | `jdbc:postgresql://host:port/db` |
-| `SPRING_DATASOURCE_USERNAME` | Usuario PostgreSQL |
-| `SPRING_DATASOURCE_PASSWORD` | Contraseña PostgreSQL |
-| `APP_CORS_ORIGINS` | URL del frontend (ej: `https://rgq-web.vercel.app`) |
-| `APP_DDL_AUTO` | `validate` |
-| `KEYCLOAK_ISSUER_URI` | URL pública del realm (ej: `https://keycloak.midominio.com/realms/cartones`) |
-| `KEYCLOAK_JWK_SET_URI` | URL de claves públicas del realm |
+| `FRONTEND_URL` | Origen CORS del frontend de prod |
+| `POSTGRES_DB`, `db_user.txt`, `db_password.txt` | Credenciales BD (los `.txt` viven en `/srv/cartones-secrets/`) |
+| `KEYCLOAK_ISSUER_URI`, `KEYCLOAK_JWK_SET_URI` | Pendiente — Keycloak aún no desplegado en prod (esa es la razón de existir del staging) |
 
 ---
 
@@ -232,6 +265,17 @@ mvn test -Dtest=NombreDeClase
 
 ## Despliegue (CI/CD)
 
-Push a `master` → Railway detecta el cambio → compila con Dockerfile → despliega sin downtime.
+### Staging (Railway)
 
-El Dockerfile usa build multi-stage (Maven → Alpine JRE) con `-DskipTests` y `-XX:MaxRAMPercentage=60.0`.
+1. Push a `develop` → GitHub Actions corre `ci.yml` (Spotless + build) y `codeql.yml`.
+2. Railway escucha el check-suite de GitHub (`Wait for CI = true`).
+3. Cuando los checks pasan, Railway construye con el Dockerfile y despliega.
+4. Healthcheck: `/actuator/health` (timeout 300s, restart on failure x3).
+
+### Producción (VPS)
+
+Push a `master` → workflow `deploy-vps.yml` (self-hosted runner en el VPS) → `docker compose up` con el código nuevo en la network externa `proxy`.
+
+El tráfico entra por Cloudflare Tunnel → nginx-proxy → contenedor backend en `cartones.eliasg.uk`.
+
+El Dockerfile usa build multi-stage (Maven → Alpine JRE) con `-DskipTests` y `-XX:MaxRAMPercentage=60.0` (override en Railway: `75.0` via `JAVA_TOOL_OPTIONS`).
