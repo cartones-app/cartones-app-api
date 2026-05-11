@@ -44,3 +44,16 @@ management:
   info:
     env:
       enabled: false
+
+# ===========================================
+# openflags — prod
+# ===========================================
+# Hot reload OFF en prod: el archivo flags.yml viene dentro del JAR y
+# WatchService sobre rutas internas de un JAR puede tirar
+# UnsupportedOperationException al startup. Para cambios en runtime,
+# montar un volumen con un flags.yml externo y apuntar
+# openflags.file.path a su path absoluto (entonces sí podés activar
+# `watch: true`).
+openflags:
+  file:
+    watch: false

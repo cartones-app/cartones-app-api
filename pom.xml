@@ -22,6 +22,7 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <openpdf.version>1.3.30</openpdf.version>
         <poi-ooxml.version>5.2.5</poi-ooxml.version>
+        <openflags.version>2.0.0-rc1</openflags.version>
     </properties>
 
     <dependencies>
@@ -110,6 +111,21 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+        </dependency>
+
+        <!-- openflags: feature flags vía YAML local con hot reload.
+             https://github.com/eliasss3990/openflags
+             Paquete raíz: io.github.eliasss3990.openflags.* (rename 2.0). -->
+        <dependency>
+            <groupId>io.github.eliasss3990</groupId>
+            <artifactId>openflags-spring-boot-starter</artifactId>
+            <version>${openflags.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.eliasss3990</groupId>
+            <artifactId>openflags-testing</artifactId>
+            <version>${openflags.version}</version>
+            <scope>test</scope>
         </dependency>
 
     </dependencies>
