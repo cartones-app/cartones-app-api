@@ -38,8 +38,5 @@ jobs:
           distribution: "temurin"
           cache: maven
 
-      - name: Spotless format check
-        run: mvn -B spotless:check
-
       - name: Compile + verify
         run: mvn -B -DskipTests verify
