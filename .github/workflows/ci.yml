@@ -1,0 +1,42 @@
+name: CI
+
+# Build verification + format check.
+# Corre en GitHub-hosted ubuntu-latest (gratis, no carga el self-hosted).
+# Triggers:
+#   - PRs hacia next/develop/master → build (R1)
+#   - Pushes a next/develop → verifica que el merge resultante compila (R8)
+# El push a master tiene su propio workflow (deploy-vps.yml).
+
+on:
+  pull_request:
+    branches: [next, develop, master]
+  push:
+    branches: [next, develop]
+
+concurrency:
+  # En PRs: cancela runs viejos cuando se pushea nuevo commit.
+  # En push a next/develop: no cancela (mantiene el de cada commit).
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # fetch-depth 0 para que Spotless pueda comparar contra develop (ratchetFrom).
+          fetch-depth: 0
+
+      - name: Setup Java 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: "temurin"
+          cache: maven
+
+      - name: Compile + verify
+        run: mvn -B -DskipTests verify
