@@ -112,6 +112,21 @@
             <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
         </dependency>
 
+        <!-- openflags: feature flags vía YAML local con hot reload.
+             https://github.com/eliasss3990/openflags
+             Paquete raíz: io.github.eliasss3990.openflags.* (rename 2.0). -->
+        <dependency>
+            <groupId>io.github.eliasss3990</groupId>
+            <artifactId>openflags-spring-boot-starter</artifactId>
+            <version>2.0.0-rc1</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.eliasss3990</groupId>
+            <artifactId>openflags-testing</artifactId>
+            <version>2.0.0-rc1</version>
+            <scope>test</scope>
+        </dependency>
+
     </dependencies>
 
     <build>

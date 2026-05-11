@@ -1,0 +1,49 @@
+# Feature flags evaluadas con openflags (https://github.com/eliasss3990/openflags).
+#
+# El archivo se carga al startup y se recarga en caliente cuando cambia
+# (WatchService). En el JAR empaquetado, el hot reload se desactiva
+# automáticamente — los flags toman el valor del classpath.
+#
+# Para sobreescribir valores en runtime sin rebuild, montar un volumen con
+# un flags.yml externo y apuntar openflags.file.path en application-*.yml.
+
+flags:
+
+  # ============================================================================
+  # Excel processing — exposición de detalles de error
+  # ============================================================================
+  excel.expose-error-details:
+    type: boolean
+    value: true
+    enabled: true
+    description: >
+      Si true, ExcelProcessingException incluye la lista de errores de validación
+      (campo `details` en la respuesta 422). Útil para que el operador corrija
+      el Excel ("fila X / vendedor Y inválido"). Si false, solo se devuelve el
+      mensaje genérico y los detalles quedan en logs server-side.
+
+  # ============================================================================
+  # Módulo ruta — kill switch para emergencia
+  # ============================================================================
+  ruta.enabled:
+    type: boolean
+    value: true
+    enabled: true
+    description: >
+      Habilita el módulo ruta (POST /api/ruta/* y /api/admin/ruta/*). Toggleable
+      a runtime para desactivar el módulo sin redeploy si se detecta un bug
+      crítico. Cuando false, los endpoints siguen existiendo pero devuelven
+      503 Service Unavailable.
+
+  # ============================================================================
+  # Distribución — A/B test placeholder de algoritmo
+  # ============================================================================
+  simulacion.algoritmo:
+    type: string
+    value: legacy
+    enabled: true
+    description: >
+      Selecciona el algoritmo de distribución de cartones. Hoy solo existe
+      'legacy'. Cuando se implemente un alternativo ('nuevo'), basta con
+      reemplazar este flag por una regla multivariant para hacer A/B test
+      sticky por procesoId.

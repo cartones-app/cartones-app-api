@@ -107,3 +107,18 @@ management:
     tags:
       application: ${spring.application.name}
       environment: ${spring.profiles.active:default}
+
+# ===========================================
+# openflags — feature flags vía YAML
+# ===========================================
+openflags:
+  provider: file
+  file:
+    path: classpath:flags.yml
+    # Hot reload se desactiva automáticamente cuando el path es classpath:* en
+    # un JAR empaquetado (no hay WatchService sobre el JAR). En desarrollo con
+    # mvn spring-boot:run apunta al target/classes y sí recarga al cambiar.
+    watch: true
+  metrics:
+    enabled: true
+    tag-flag-key: true
