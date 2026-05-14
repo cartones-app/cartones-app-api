@@ -1,8 +1,20 @@
 package com.eliasgonzalez.cartones.ruta.service;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.util.*;
+
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFCell;
+import org.apache.poi.xssf.usermodel.XSSFColor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+
 import com.eliasgonzalez.cartones.common.excel.AbstractExcelParser;
 import com.eliasgonzalez.cartones.common.exception.ExcelProcessingException;
 import com.eliasgonzalez.cartones.common.exception.ResourceNotFoundException;
+import com.eliasgonzalez.cartones.common.logging.LogSanitizer;
 import com.eliasgonzalez.cartones.common.util.ExcelUtil;
 import com.eliasgonzalez.cartones.common.util.TextoUtil;
 import com.eliasgonzalez.cartones.ruta.controller.dto.CargaRutaResponseDTO;
@@ -13,28 +25,17 @@ import com.eliasgonzalez.cartones.ruta.repository.ExclusionRutaRepository;
 import com.eliasgonzalez.cartones.ruta.repository.SesionRutaRepository;
 import com.eliasgonzalez.cartones.vendedor.domain.Vendedor;
 import com.eliasgonzalez.cartones.vendedor.repository.VendedorRepository;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.poi.ss.usermodel.*;
-import org.apache.poi.xssf.usermodel.XSSFCell;
-import org.apache.poi.xssf.usermodel.XSSFColor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
-
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.util.*;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class RutaExcelLectorService extends AbstractExcelParser {
 
-    private static final List<String> COLUMNAS_REQUERIDAS = List.of(
-        RutaColumnaEnum.FECHA.getValor(),
-        RutaColumnaEnum.VENDEDOR.getValor()
-    );
+    private static final List<String> COLUMNAS_REQUERIDAS =
+            List.of(RutaColumnaEnum.FECHA.getValor(), RutaColumnaEnum.VENDEDOR.getValor());
 
     private final SesionRutaRepository sesionRutaRepo;
     private final ExclusionRutaRepository exclusionRutaRepo;
@@ -67,17 +68,18 @@ public class RutaExcelLectorService extends AbstractExcelParser {
 
         String sesionId = UUID.randomUUID().toString();
         SesionRuta sesion = SesionRuta.builder()
-            .sesionId(sesionId)
-            .fechaFiltro("") // se actualiza cuando el usuario elige la fecha
-            .archivoExcel(excelBytes)
-            .build();
+                .sesionId(sesionId)
+                .fechaFiltro("") // se actualiza cuando el usuario elige la fecha
+                .archivoExcel(excelBytes)
+                .build();
         sesionRutaRepo.save(sesion);
 
-        log.info("Sesión de ruta creada: {}. Fechas disponibles: {}", sesionId, fechasDisponibles);
+        // fechasDisponibles viene de celdas Excel: contenido user-controlled.
+        log.info("Sesión de ruta creada: {}. Fechas disponibles: {}", sesionId, LogSanitizer.safe(fechasDisponibles));
         return CargaRutaResponseDTO.builder()
-            .sesionId(sesionId)
-            .fechasDisponibles(fechasDisponibles)
-            .build();
+                .sesionId(sesionId)
+                .fechasDisponibles(fechasDisponibles)
+                .build();
     }
 
     /**
@@ -90,17 +92,16 @@ public class RutaExcelLectorService extends AbstractExcelParser {
      */
     @Transactional
     public List<RegistroRutaDTO> filtrarPorFechas(String sesionId, List<String> fechasSeleccionadas) {
-        SesionRuta sesion = sesionRutaRepo.findBySesionId(sesionId)
-            .orElseThrow(() -> new ResourceNotFoundException(
-                "Sesión de ruta con ID " + sesionId + " no encontrada.", List.of()
-            ));
+        SesionRuta sesion = sesionRutaRepo
+                .findBySesionId(sesionId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Sesión de ruta con ID " + sesionId + " no encontrada.", List.of()));
 
         sesion.setFechaFiltro(String.join(",", fechasSeleccionadas));
         sesionRutaRepo.save(sesion);
 
         Set<String> nombresExcluidos = new HashSet<>();
-        exclusionRutaRepo.findByActivoTrue()
-            .forEach(e -> nombresExcluidos.add(TextoUtil.normalize(e.getNombre())));
+        exclusionRutaRepo.findByActivoTrue().forEach(e -> nombresExcluidos.add(TextoUtil.normalize(e.getNombre())));
 
         List<RegistroRutaDTO> registros;
         try (Workbook wb = WorkbookFactory.create(new ByteArrayInputStream(sesion.getArchivoExcel()))) {
@@ -118,15 +119,22 @@ public class RutaExcelLectorService extends AbstractExcelParser {
 
         // Upsert de vendedores en la tabla maestra
         registros.forEach(r -> {
-            Vendedor vendedor = vendedorRepo.findByNombreIgnoreCase(r.getNombre())
-                .orElseGet(() -> vendedorRepo.save(Vendedor.builder().nombre(r.getNombre()).build()));
+            Vendedor vendedor = vendedorRepo
+                    .findByNombreIgnoreCase(r.getNombre())
+                    .orElseGet(() -> vendedorRepo.save(
+                            Vendedor.builder().nombre(r.getNombre()).build()));
             r.setVendedorId(vendedor.getId());
         });
 
         sesion.setTotalRegistros(registros.size());
         sesionRutaRepo.save(sesion);
 
-        log.info("Sesión {}: {} registros filtrados para fechas {}", sesionId, registros.size(), fechasSeleccionadas);
+        // sesionId path-var, fechasSeleccionadas body — ambos user-controlled.
+        log.info(
+                "Sesión {}: {} registros filtrados para fechas {}",
+                LogSanitizer.safe(sesionId),
+                registros.size(),
+                LogSanitizer.safe(fechasSeleccionadas));
         return registros;
     }
 
@@ -164,9 +172,8 @@ public class RutaExcelLectorService extends AbstractExcelParser {
             Map<String, Integer> idx,
             FormulaEvaluator evaluator,
             List<String> fechasSeleccionadas,
-            Set<String> nombresExcluidos
-    ) {
-        Integer fechaIdx    = idx.get(TextoUtil.normalize(RutaColumnaEnum.FECHA.getValor()));
+            Set<String> nombresExcluidos) {
+        Integer fechaIdx = idx.get(TextoUtil.normalize(RutaColumnaEnum.FECHA.getValor()));
         Integer vendedorIdx = idx.get(TextoUtil.normalize(RutaColumnaEnum.VENDEDOR.getValor()));
 
         Set<String> nombresVistos = new HashSet<>();
@@ -196,7 +203,7 @@ public class RutaExcelLectorService extends AbstractExcelParser {
             // Deduplicación: primera ocurrencia por nombre
             String claveDedup = TextoUtil.normalize(nombreVendedor);
             if (nombresVistos.contains(claveDedup)) {
-                log.warn("Vendedor duplicado ignorado en fila {}: '{}'", i + 1, nombreVendedor);
+                log.warn("Vendedor duplicado ignorado en fila {}: '{}'", i + 1, LogSanitizer.safe(nombreVendedor));
                 continue;
             }
             nombresVistos.add(claveDedup);
@@ -212,22 +219,32 @@ public class RutaExcelLectorService extends AbstractExcelParser {
             FormulaEvaluator evaluator,
             String nombre,
             String fecha,
-            int numeroFila
-    ) {
+            int numeroFila) {
         return RegistroRutaDTO.builder()
-            .nombre(nombre)
-            .fecha(fecha)
-            .numeroFila(numeroFila)
-            .deudaAnterior(ExcelUtil.getBigDecimalCell(row, idx.get(TextoUtil.normalize(RutaColumnaEnum.DEUDA_ANT.getValor())), evaluator))
-            .seneteTotalEnviado(ExcelUtil.getIntCell(row, idx.get(TextoUtil.normalize(RutaColumnaEnum.SENETE_TOTAL_ENVIADO.getValor())), evaluator))
-            .telebingoTotalEnviado(ExcelUtil.getIntCell(row, idx.get(TextoUtil.normalize(RutaColumnaEnum.TELEBINGO_TOTAL_ENVIADO.getValor())), evaluator))
-            .refSenete(ExcelUtil.getIntCell(row, idx.get(TextoUtil.normalize(RutaColumnaEnum.REF_SENETE.getValor())), evaluator))
-            .refTelb(ExcelUtil.getIntCell(row, idx.get(TextoUtil.normalize(RutaColumnaEnum.REF_TELB.getValor())), evaluator))
-            .devSen(ExcelUtil.getIntCell(row, idx.get(TextoUtil.normalize(RutaColumnaEnum.DEV_SEN.getValor())), evaluator))
-            .devTelb(ExcelUtil.getIntCell(row, idx.get(TextoUtil.normalize(RutaColumnaEnum.DEV_TELB.getValor())), evaluator))
-            .pago1(ExcelUtil.getBigDecimalCell(row, idx.get(TextoUtil.normalize(RutaColumnaEnum.PAGO1.getValor())), evaluator))
-            .pago2(ExcelUtil.getBigDecimalCell(row, idx.get(TextoUtil.normalize(RutaColumnaEnum.PAGO2.getValor())), evaluator))
-            .build();
+                .nombre(nombre)
+                .fecha(fecha)
+                .numeroFila(numeroFila)
+                .deudaAnterior(ExcelUtil.getBigDecimalCell(
+                        row, idx.get(TextoUtil.normalize(RutaColumnaEnum.DEUDA_ANT.getValor())), evaluator))
+                .seneteTotalEnviado(ExcelUtil.getIntCell(
+                        row, idx.get(TextoUtil.normalize(RutaColumnaEnum.SENETE_TOTAL_ENVIADO.getValor())), evaluator))
+                .telebingoTotalEnviado(ExcelUtil.getIntCell(
+                        row,
+                        idx.get(TextoUtil.normalize(RutaColumnaEnum.TELEBINGO_TOTAL_ENVIADO.getValor())),
+                        evaluator))
+                .refSenete(ExcelUtil.getIntCell(
+                        row, idx.get(TextoUtil.normalize(RutaColumnaEnum.REF_SENETE.getValor())), evaluator))
+                .refTelb(ExcelUtil.getIntCell(
+                        row, idx.get(TextoUtil.normalize(RutaColumnaEnum.REF_TELB.getValor())), evaluator))
+                .devSen(ExcelUtil.getIntCell(
+                        row, idx.get(TextoUtil.normalize(RutaColumnaEnum.DEV_SEN.getValor())), evaluator))
+                .devTelb(ExcelUtil.getIntCell(
+                        row, idx.get(TextoUtil.normalize(RutaColumnaEnum.DEV_TELB.getValor())), evaluator))
+                .pago1(ExcelUtil.getBigDecimalCell(
+                        row, idx.get(TextoUtil.normalize(RutaColumnaEnum.PAGO1.getValor())), evaluator))
+                .pago2(ExcelUtil.getBigDecimalCell(
+                        row, idx.get(TextoUtil.normalize(RutaColumnaEnum.PAGO2.getValor())), evaluator))
+                .build();
     }
 
     /**
@@ -259,7 +276,10 @@ public class RutaExcelLectorService extends AbstractExcelParser {
                 }
             }
         } catch (Exception e) {
-            log.warn("No se pudo leer el color de la celda en fila {}: {}", row.getRowNum() + 1, e.getMessage());
+            log.warn(
+                    "No se pudo leer el color de la celda en fila {}: {}",
+                    row.getRowNum() + 1,
+                    LogSanitizer.safe(e.getMessage()));
         }
         return false;
     }

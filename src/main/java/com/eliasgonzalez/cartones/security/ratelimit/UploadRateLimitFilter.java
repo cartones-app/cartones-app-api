@@ -1,11 +1,13 @@
 package com.eliasgonzalez.cartones.security.ratelimit;
 
+import java.io.IOException;
+import java.util.Set;
+
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
@@ -14,8 +16,10 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-import java.io.IOException;
-import java.util.Set;
+import com.eliasgonzalez.cartones.common.logging.LogSanitizer;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Aplica rate limiting a los endpoints de upload (carga de Excel).
@@ -33,32 +37,31 @@ import java.util.Set;
 @Slf4j
 public class UploadRateLimitFilter extends OncePerRequestFilter {
 
-    private static final Set<String> RATE_LIMITED_PATHS = Set.of(
-            "/api/vendedores/carga",
-            "/api/ruta/carga");
+    private static final Set<String> RATE_LIMITED_PATHS = Set.of("/api/vendedores/carga", "/api/ruta/carga");
 
     private final UploadRateLimiter rateLimiter;
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return !"POST".equalsIgnoreCase(request.getMethod())
-                || !RATE_LIMITED_PATHS.contains(request.getRequestURI());
+        return !"POST".equalsIgnoreCase(request.getMethod()) || !RATE_LIMITED_PATHS.contains(request.getRequestURI());
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request,
-            HttpServletResponse response,
-            FilterChain filterChain) throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+            throws ServletException, IOException {
         String key = resolverClave(request);
         if (rateLimiter.tryConsume(key)) {
             filterChain.doFilter(request, response);
             return;
         }
-        log.warn("Rate limit excedido en {} para clave='{}'", request.getRequestURI(), key);
+        log.warn(
+                "Rate limit excedido en {} para clave='{}'",
+                LogSanitizer.safe(request.getRequestURI()),
+                LogSanitizer.safe(key));
         response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        response.getWriter().write(
-                "{\"status\":429,\"error\":\"Too Many Requests\","
+        response.getWriter()
+                .write("{\"status\":429,\"error\":\"Too Many Requests\","
                         + "\"message\":\"Demasiados uploads. Esperá un minuto y reintentá.\"}");
     }
 

@@ -1,17 +1,20 @@
 package com.eliasgonzalez.cartones.ruta.service;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.eliasgonzalez.cartones.common.exception.ResourceNotFoundException;
+import com.eliasgonzalez.cartones.common.exception.UnprocessableEntityException;
 import com.eliasgonzalez.cartones.ruta.controller.dto.ExclusionRutaRequestDTO;
 import com.eliasgonzalez.cartones.ruta.controller.dto.ExclusionRutaResponseDTO;
 import com.eliasgonzalez.cartones.ruta.domain.ExclusionRuta;
 import com.eliasgonzalez.cartones.ruta.repository.ExclusionRutaRepository;
-import com.eliasgonzalez.cartones.common.exception.ResourceNotFoundException;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -23,28 +26,25 @@ public class AdminExclusionRutaService {
 
     @Transactional(readOnly = true)
     public List<ExclusionRutaResponseDTO> listarTodas() {
-        return exclusionRutaRepo.findAll().stream()
-            .map(this::toDTO)
-            .collect(Collectors.toList());
+        return exclusionRutaRepo.findAll().stream().map(this::toDTO).collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public List<ExclusionRutaResponseDTO> listarActivas() {
-        return exclusionRutaRepo.findByActivoTrue().stream()
-            .map(this::toDTO)
-            .collect(Collectors.toList());
+        return exclusionRutaRepo.findByActivoTrue().stream().map(this::toDTO).collect(Collectors.toList());
     }
 
     public ExclusionRutaResponseDTO crear(ExclusionRutaRequestDTO request) {
         if (exclusionRutaRepo.existsByNombreIgnoreCase(request.getNombre())) {
-            throw new IllegalArgumentException("Ya existe una exclusión con el nombre: " + request.getNombre());
+            throw new UnprocessableEntityException(
+                    "Ya existe una exclusión con el nombre indicado.", List.of(request.getNombre()));
         }
 
         ExclusionRuta exclusion = ExclusionRuta.builder()
-            .nombre(request.getNombre().trim())
-            .descripcion(request.getDescripcion())
-            .activo(request.getActivo() != null ? request.getActivo() : true)
-            .build();
+                .nombre(request.getNombre().trim())
+                .descripcion(request.getDescripcion())
+                .activo(request.getActivo() != null ? request.getActivo() : true)
+                .build();
 
         return toDTO(exclusionRutaRepo.save(exclusion));
     }
@@ -66,20 +66,20 @@ public class AdminExclusionRutaService {
     }
 
     private ExclusionRuta buscarPorId(Long id) {
-        return exclusionRutaRepo.findById(id)
-            .orElseThrow(() -> new ResourceNotFoundException(
-                "Exclusión de ruta con ID " + id + " no encontrada.", List.of()
-            ));
+        return exclusionRutaRepo
+                .findById(id)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Exclusión de ruta con ID " + id + " no encontrada.", List.of()));
     }
 
     private ExclusionRutaResponseDTO toDTO(ExclusionRuta e) {
         return ExclusionRutaResponseDTO.builder()
-            .id(e.getId())
-            .nombre(e.getNombre())
-            .descripcion(e.getDescripcion())
-            .activo(e.getActivo())
-            .createdAt(e.getCreatedAt())
-            .createdBy(e.getCreatedBy())
-            .build();
+                .id(e.getId())
+                .nombre(e.getNombre())
+                .descripcion(e.getDescripcion())
+                .activo(e.getActivo())
+                .createdAt(e.getCreatedAt())
+                .createdBy(e.getCreatedBy())
+                .build();
     }
 }

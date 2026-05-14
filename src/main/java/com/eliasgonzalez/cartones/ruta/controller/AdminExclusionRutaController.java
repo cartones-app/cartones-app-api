@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import com.eliasgonzalez.cartones.common.logging.LogSanitizer;
 import com.eliasgonzalez.cartones.ruta.controller.dto.ExclusionRutaRequestDTO;
 import com.eliasgonzalez.cartones.ruta.controller.dto.ExclusionRutaResponseDTO;
 import com.eliasgonzalez.cartones.ruta.service.AdminExclusionRutaService;
@@ -42,7 +43,7 @@ public class AdminExclusionRutaController {
     // Crear una nueva exclusión
     @PostMapping
     public ResponseEntity<ExclusionRutaResponseDTO> crear(@Valid @RequestBody ExclusionRutaRequestDTO request) {
-        log.debug("POST /api/admin/ruta/exclusiones - nombre: {}", request.getNombre());
+        log.debug("POST /api/admin/ruta/exclusiones - nombre: {}", LogSanitizer.safe(request.getNombre()));
         return ResponseEntity.ok(exclusionService.crear(request));
     }
 
