@@ -45,6 +45,12 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         log.info("Configurando Spring Security como Resource Server (Keycloak)");
 
+        // CSRF está deshabilitado intencionalmente: este backend es un Resource Server
+        // stateless (JWT en Authorization header, sin cookies de sesión). CSRF aplica
+        // a apps que autentican por cookie — el navegador NO envía Authorization
+        // automáticamente cross-origin, así que un atacante no puede forjar la request.
+        // CodeQL flag (java/spring-disabled-csrf-protection) es un falso positivo
+        // para este patrón. Si en el futuro agregamos cookie-based auth, reactivar.
         http.csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
