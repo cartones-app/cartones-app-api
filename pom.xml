@@ -22,7 +22,7 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <openpdf.version>1.3.30</openpdf.version>
         <poi-ooxml.version>5.2.5</poi-ooxml.version>
-        <openflags.version>2.0.0-rc1</openflags.version>
+        <openflags.version>2.0.0-rc2</openflags.version>
     </properties>
 
     <dependencies>
@@ -116,32 +116,10 @@
         <!-- openflags: feature flags vía YAML local con hot reload.
              https://github.com/eliasss3990/openflags
              Paquete raíz: io.github.eliasss3990.openflags.* (rename 2.0).
-
-             Los 3 providers están <optional>true</optional> en el pom del
-             starter (openflags 2.0.0-rc1), pero OpenFlagsAutoConfiguration los
-             referencia en signatures de @Bean methods. Spring llama
-             getDeclaredMethods() al levantar el contexto y resuelve esas
-             clases — sin todos los providers en classpath rompe con
-             NoClassDefFoundError. Hasta que upstream haga granular el
-             @ConditionalOnClass por método (rc2), declaramos los 3 acá. -->
+             openflags-provider-file entra transitivo desde el starter. -->
         <dependency>
             <groupId>io.github.eliasss3990</groupId>
             <artifactId>openflags-spring-boot-starter</artifactId>
-            <version>${openflags.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.github.eliasss3990</groupId>
-            <artifactId>openflags-provider-file</artifactId>
-            <version>${openflags.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.github.eliasss3990</groupId>
-            <artifactId>openflags-provider-remote</artifactId>
-            <version>${openflags.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.github.eliasss3990</groupId>
-            <artifactId>openflags-provider-hybrid</artifactId>
             <version>${openflags.version}</version>
         </dependency>
         <dependency>

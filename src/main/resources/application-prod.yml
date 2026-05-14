@@ -48,13 +48,9 @@ management:
 # ===========================================
 # openflags — prod
 # ===========================================
-# El JAR empaquetado por spring-boot-maven-plugin no se puede recorrer
-# como filesystem; el starter de openflags 2.0.0-rc1 falla al intentar
-# resolver classpath:* dentro del launcher JAR. Workaround: el Dockerfile
-# extrae src/main/resources/flags.yml a /app/flags.yml y acá apuntamos
-# a ese path absoluto. Hot reload activo: si en runtime se monta un
-# volumen sobre /app/flags.yml, los cambios se detectan sin redeploy.
+# El starter (rc2+) extrae classpath:flags.yml a un temp file determinístico
+# cuando está dentro del launcher JAR, pero solo si watch-enabled=false.
+# WatchService no puede observar entries dentro de un archive.
 openflags:
   file:
-    path: file:/app/flags.yml
-    watch: true
+    watch-enabled: false

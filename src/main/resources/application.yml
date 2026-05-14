@@ -114,13 +114,8 @@ management:
 openflags:
   provider: file
   file:
-    # Override por perfil:
-    #   - default/local: classpath:flags.yml (mvn spring-boot:run resuelve a target/classes/flags.yml)
-    #   - prod: file:/app/flags.yml (extraído por el Dockerfile fuera del JAR;
-    #     openflags-starter no soporta classpath:* dentro de un Spring Boot
-    #     launcher JAR — intenta convertir a Path y rompe).
     path: classpath:flags.yml
-    watch: true
+    watch-enabled: true
   metrics:
     enabled: true
     tag-flag-key: true
