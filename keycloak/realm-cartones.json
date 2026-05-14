@@ -27,8 +27,8 @@
         "http://localhost:3000",
         "https://rgq-web.vercel.app"
       ],
-      "defaultClientScopes": ["openid", "profile", "email", "roles"],
-      "optionalClientScopes": ["address", "phone"]
+      "defaultClientScopes": ["basic", "profile", "email", "roles", "web-origins"],
+      "optionalClientScopes": ["address", "phone", "offline_access"]
     }
   ],
   "users": [
