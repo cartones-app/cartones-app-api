@@ -35,3 +35,14 @@ server:
 logging:
   level:
     org.hibernate.orm.jdbc.bind: TRACE
+
+# ===========================================
+# openflags — dev en container
+# ===========================================
+# Cuando el backend corre adentro del JAR (docker compose, sin bind-mount del
+# código), classpath:flags.yml vive dentro del archive y WatchService no puede
+# observarlo. Lo mismo que aplica en prod. Sin esto, el bootstrap de Spring
+# explota con "Flag file 'classpath:flags.yml' is inside a JAR…".
+openflags:
+  file:
+    watch-enabled: false
