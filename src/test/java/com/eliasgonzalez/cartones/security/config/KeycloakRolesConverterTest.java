@@ -54,17 +54,42 @@ class KeycloakRolesConverterTest {
     }
 
     @Test
-    void preservaCaseDelRol() {
-        // Keycloak por convención usa MAYÚSCULAS en realm roles, pero validamos
-        // que el converter no normalice — Spring matchea hasRole("ADMIN") con
-        // ROLE_ADMIN exacto, así que cualquier transformación rompería auth.
+    void normalizaACaseInsensitiveAUpperCase() {
+        // El converter normaliza los nombres de rol a UPPERCASE: todas las
+        // expresiones hasRole(...) del backend usan UPPERCASE (ADMIN, DISTRIBUIDOR)
+        // y Spring compara authorities case-sensitive. Si Keycloak emite el rol
+        // con otra capitalización (admin, Distribuidor) sin normalización, el
+        // match falla silenciosamente y el endpoint devuelve 403.
         Jwt jwt = jwtConRealmAccess(List.of("admin", "Distribuidor"));
 
         Collection<GrantedAuthority> authorities = converter.convert(jwt);
 
         assertThat(authorities)
                 .extracting(GrantedAuthority::getAuthority)
-                .containsExactlyInAnyOrder("ROLE_admin", "ROLE_Distribuidor");
+                .containsExactlyInAnyOrder("ROLE_ADMIN", "ROLE_DISTRIBUIDOR");
+    }
+
+    @Test
+    void ignoraValoresNoStringYRolesVacios() {
+        // Defensa ante un realm_access malformado: roles puede contener
+        // valores no-string o strings vacíos/whitespace tras un upgrade
+        // de Keycloak o un realm corrupto.
+        Jwt jwt = jwtConClaim("realm_access", Map.of("roles", List.of("ADMIN", "", "   ", 42)));
+
+        Collection<GrantedAuthority> authorities = converter.convert(jwt);
+
+        assertThat(authorities).extracting(GrantedAuthority::getAuthority).containsExactly("ROLE_ADMIN");
+    }
+
+    @Test
+    void devuelveListaVaciaSiRolesNoEsLista() {
+        // Cast defensivo: si Keycloak devuelve un String donde esperamos List,
+        // no debe lanzar ClassCastException.
+        Jwt jwt = jwtConClaim("realm_access", Map.of("roles", "no-soy-una-lista"));
+
+        Collection<GrantedAuthority> authorities = converter.convert(jwt);
+
+        assertThat(authorities).isEmpty();
     }
 
     private static Jwt jwtConRealmAccess(List<String> roles) {
