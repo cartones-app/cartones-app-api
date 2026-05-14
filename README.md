@@ -18,10 +18,10 @@ Sistema de gestión para vendedores y cartones de bingo. API REST en Spring Boot
 | Rate limiting | Bucket4j 8.10 (in-memory, uploads) |
 | Migraciones | Flyway |
 | Contenedores | Docker / Docker Compose |
-| CI/CD | GitHub Actions (self-hosted runner ARM64) |
-| Producción | VPS personal (Hetzner ARM64) detrás de Cloudflare Tunnel + nginx-proxy |
-| Staging | Railway (backend) + Vercel (frontend) — paralelo, código de develop |
-| Frontend | Next.js 16 (`cartones-app/cartones-app-web`) |
+| Staging | Railway (backend + Postgres + Keycloak dedicados) |
+| Producción | VPS Hetzner ARM64 (Cloudflare Tunnel + nginx-proxy) |
+| Frontend | Next.js 16 en Vercel (staging) / VPS (prod) — `cartones-app/cartones-app-web` |
+| CI / Seguridad | GitHub Actions (self-hosted runner ARM64) + CodeQL (`security-extended`) |
 
 ---
 
@@ -29,9 +29,9 @@ Sistema de gestión para vendedores y cartones de bingo. API REST en Spring Boot
 
 | Rama | Ambiente | Host | Despliegue |
 |------|----------|------|-----------|
-| `master` | Producción | VPS (`cartones.eliasg.uk`) | GitHub Actions → self-hosted runner al merge |
-| `develop` | Staging | Railway | redeploy automático al merge |
-| `next` | Integración | — | sprints / features mergean acá primero |
+| `master` | Producción | VPS (`cartones.eliasg.uk`) | Push → workflow `deploy-vps.yml` → self-hosted runner ARM64 |
+| `develop` | Staging | Railway (`backend-staging-de76.up.railway.app`) | Push → CI workflows verdes → Railway redeploya (`Wait for CI` activado) |
+| `next` | Integración | — | Solo corre CI + CodeQL; sprints / features mergean acá primero |
 | `feat/*`, `chore/*`, `fix/*` | Trabajo | — | mergean a `next` vía PR |
 
 `master` lleva tags futuros (`v1.x.x`); `develop` y `next` siempre `-SNAPSHOT`.
@@ -169,7 +169,30 @@ curl -H "Authorization: Bearer <TOKEN>" http://localhost:9001/api/vendedores/<pr
 | `KEYCLOAK_ADMIN_PASSWORD` | `*****` | Contraseña admin de Keycloak |
 | `APP_UPLOADS_RATE_LIMIT_RPM` | `10` | Rate limit por usuario en endpoints de upload |
 
-### Producción (VPS, configurado vía GitHub Variables)
+### Railway (staging)
+
+Proyecto: `cartones-staging`. Tres servicios:
+
+- `postgres` — `ghcr.io/railwayapp-templates/postgres-ssl:16`, volumen persistente.
+- `keycloak` — `quay.io/keycloak/keycloak:26.1` modo `start-dev`, backend Postgres compartido. URL pública: `https://keycloak-staging-085a.up.railway.app`.
+- `backend` — linkeado al repo en rama `develop`, perfil `prod`. URL pública: `https://backend-staging-de76.up.railway.app`.
+
+Variables del servicio `backend` (referencias a otros servicios via `${{servicio.VAR}}`):
+
+| Variable | Valor |
+|----------|-------|
+| `SPRING_PROFILES_ACTIVE` | `prod` |
+| `SERVER_PORT` | `8080` |
+| `SPRING_DATASOURCE_URL` | `jdbc:postgresql://${{postgres.RAILWAY_PRIVATE_DOMAIN}}:5432/${{postgres.POSTGRES_DB}}` |
+| `SPRING_DATASOURCE_USERNAME` | `${{postgres.POSTGRES_USER}}` |
+| `SPRING_DATASOURCE_PASSWORD` | `${{postgres.POSTGRES_PASSWORD}}` |
+| `APP_CORS_ORIGINS` | `https://cartones-app-web.vercel.app` |
+| `APP_DDL_AUTO` | `update` |
+| `JAVA_TOOL_OPTIONS` | `-XX:MaxRAMPercentage=75.0` |
+| `KEYCLOAK_ISSUER_URI` | `https://keycloak-staging-085a.up.railway.app/realms/cartones` (público — coincide con claim `iss` del JWT) |
+| `KEYCLOAK_JWK_SET_URI` | `http://${{keycloak.RAILWAY_PRIVATE_DOMAIN}}:8080/realms/cartones/protocol/openid-connect/certs` (red privada Railway, sin pasar por edge) |
+
+### VPS (producción, configurado vía GitHub Variables)
 
 El workflow `.github/workflows/deploy-vps.yml` arma el `.env` del compose en cada deploy combinando **Variables del repo** + **secretos de DB en `/srv/cartones-secrets/`** del host.
 
@@ -293,7 +316,12 @@ El backend joinea la network externa `proxy` (creada por `~/infra-claude/vps`) y
 
 ### Staging — Railway (`develop`)
 
-Push a `develop` → Railway redeploya. Usado para validar antes de promover a master.
+1. Push a `develop` → GitHub Actions corre `ci.yml` (Spotless + build) y `codeql.yml`.
+2. Railway escucha el check-suite de GitHub (`Wait for CI = true`).
+3. Cuando los checks pasan, Railway construye con el Dockerfile y despliega.
+4. Healthcheck: `/actuator/health` (timeout 300s, restart on failure x3).
+
+El Dockerfile usa build multi-stage (Maven → Alpine JRE) con `-DskipTests` y `-XX:MaxRAMPercentage=60.0` (override en Railway: `75.0` via `JAVA_TOOL_OPTIONS`).
 
 ### Integración continua (PRs y push a `next`/`develop`)
 

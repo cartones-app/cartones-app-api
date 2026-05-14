@@ -44,3 +44,13 @@ management:
   info:
     env:
       enabled: false
+
+# ===========================================
+# openflags — prod
+# ===========================================
+# El starter (rc2+) extrae classpath:flags.yml a un temp file determinístico
+# cuando está dentro del launcher JAR, pero solo si watch-enabled=false.
+# WatchService no puede observar entries dentro de un archive.
+openflags:
+  file:
+    watch-enabled: false
