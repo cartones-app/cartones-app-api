@@ -34,12 +34,6 @@ USER spring:spring
 # Copiamos el JAR compilado desde la etapa anterior
 COPY --from=build /app/target/*.jar app.jar
 
-# Extraemos flags.yml fuera del JAR — openflags-starter no resuelve
-# classpath:* cuando el recurso está dentro de un Spring Boot launcher JAR
-# (lo intenta convertir a Path y rompe). Copiamos el archivo del sourcecode
-# al runtime, y application.yml apunta a file:/app/flags.yml.
-COPY --chown=spring:spring src/main/resources/flags.yml /app/flags.yml
-
 EXPOSE 9001
 
 # JAVA_OPTS:

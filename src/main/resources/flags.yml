@@ -1,8 +1,11 @@
 # Feature flags evaluadas con openflags (https://github.com/eliasss3990/openflags).
 #
 # El archivo se carga al startup y se recarga en caliente cuando cambia
-# (WatchService). En el JAR empaquetado, el hot reload se desactiva
-# automáticamente — los flags toman el valor del classpath.
+# (WatchService). En prod (application-prod.yml) se setea
+# openflags.file.watch-enabled=false porque el classpath:flags.yml vive
+# dentro del launcher JAR y WatchService no puede observar entries de un
+# archive — con watch activo dentro del JAR el starter lanza IOException.
+# El starter (rc2+) extrae el resource a un temp file 0600 solo con watch=false.
 #
 # Para sobreescribir valores en runtime sin rebuild, montar un volumen con
 # un flags.yml externo y apuntar openflags.file.path en application-*.yml.
