@@ -22,18 +22,32 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
+import io.github.eliasss3990.openflags.core.OpenFlagsClient;
 import lombok.extern.slf4j.Slf4j;
 
 /**
  * Manejador global de excepciones que estandariza las respuestas de error
  * siguiendo RFC 7807 (Problem Details for HTTP APIs).
+ *
+ * <p><b>openflags</b>: usa {@link OpenFlagsClient} para evaluar el flag
+ * {@code excel.expose-error-details} y decidir si los detalles de validación
+ * de Excel se exponen en el campo {@code details} de la respuesta 422.
  */
 @ControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
 
+    /** Flag key: cuando true, las respuestas 422 de Excel incluyen el detalle de errores. */
+    private static final String FLAG_EXCEL_EXPOSE_ERROR_DETAILS = "excel.expose-error-details";
+
     @Value("${spring.profiles.active:prod}")
     private String activeProfile;
+
+    private final OpenFlagsClient flags;
+
+    public GlobalExceptionHandler(OpenFlagsClient flags) {
+        this.flags = flags;
+    }
 
     private ErrorResponse buildErrorResponse(
             HttpStatus status, String error, String message, List<String> details, HttpServletRequest request) {
@@ -67,14 +81,14 @@ public class GlobalExceptionHandler {
             ExcelProcessingException ex, HttpServletRequest request) {
         log.error("Error de procesamiento de Excel en {}: {}", request.getRequestURI(), ex.getMessage());
         log.debug("Detalles del error Excel:", ex);
-        // errorDetails se devuelve siempre: son mensajes de validación user-facing
-        // (fila, vendedor, columna inválida) que el usuario necesita para corregir su Excel.
+        // flag excel.expose-error-details: si false, los detalles quedan en logs
+        // pero no se exponen al cliente. Default true (decisión 2026-05-09 del
+        // usuario: los detalles son user-facing por diseño — el frontend muestra
+        // "fila X / vendedor Y inválido" para que el operador corrija su Excel).
+        boolean exposeDetails = flags.getBooleanValue(FLAG_EXCEL_EXPOSE_ERROR_DETAILS, true);
+        List<String> details = exposeDetails ? ex.getErrorDetails() : List.of();
         ErrorResponse response = buildErrorResponse(
-                HttpStatus.UNPROCESSABLE_ENTITY,
-                "Error de Procesamiento de Excel",
-                ex.getMessage(),
-                ex.getErrorDetails(),
-                request);
+                HttpStatus.UNPROCESSABLE_ENTITY, "Error de Procesamiento de Excel", ex.getMessage(), details, request);
         return new ResponseEntity<>(response, HttpStatus.UNPROCESSABLE_ENTITY);
     }
 

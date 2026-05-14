@@ -115,3 +115,15 @@ management:
     tags:
       application: ${spring.application.name}
       environment: ${spring.profiles.active:default}
+
+# ===========================================
+# openflags — feature flags vía YAML
+# ===========================================
+openflags:
+  provider: file
+  file:
+    path: classpath:flags.yml
+    watch-enabled: true
+  metrics:
+    enabled: true
+    tag-flag-key: true

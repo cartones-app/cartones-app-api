@@ -24,6 +24,7 @@
         <poi-ooxml.version>5.2.5</poi-ooxml.version>
         <spotless.version>2.43.0</spotless.version>
         <palantir-java-format.version>2.50.0</palantir-java-format.version>
+        <openflags.version>2.0.0-rc2</openflags.version>
     </properties>
 
     <dependencies>
@@ -139,6 +140,36 @@
             <groupId>com.bucket4j</groupId>
             <artifactId>bucket4j-core</artifactId>
             <version>8.10.1</version>
+        </dependency>
+
+        <!-- openflags: feature flags vía YAML local con hot reload.
+             https://github.com/eliasss3990/openflags
+             Paquete raíz: io.github.eliasss3990.openflags.* (rename 2.0).
+             openflags-provider-file entra transitivo desde el starter.
+
+             openflags-provider-hybrid declarado explícito (no lo usamos
+             como provider activo, provider=file) por bug en starter 2.0.0-rc2:
+             OpenFlagsProperties.HybridProperties field snapshotFormat es de
+             tipo SnapshotFormat (clase de provider-hybrid optional). Spring
+             instancia OpenFlagsProperties siempre al bind, falla con
+             NoClassDefFoundError si provider-hybrid no está en classpath.
+             Remover esta dep cuando rc3 mueva la referencia a un módulo
+             que se cargue solo con provider=hybrid. -->
+        <dependency>
+            <groupId>io.github.eliasss3990</groupId>
+            <artifactId>openflags-spring-boot-starter</artifactId>
+            <version>${openflags.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.eliasss3990</groupId>
+            <artifactId>openflags-provider-hybrid</artifactId>
+            <version>${openflags.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.eliasss3990</groupId>
+            <artifactId>openflags-testing</artifactId>
+            <version>${openflags.version}</version>
+            <scope>test</scope>
         </dependency>
 
     </dependencies>
