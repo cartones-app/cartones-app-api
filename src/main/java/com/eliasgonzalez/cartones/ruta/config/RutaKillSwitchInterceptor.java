@@ -1,18 +1,21 @@
 package com.eliasgonzalez.cartones.ruta.config;
 
-import com.eliasgonzalez.cartones.common.exception.ErrorResponse;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import io.github.eliasss3990.openflags.core.OpenFlagsClient;
+import java.time.LocalDateTime;
+import java.util.List;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
-import java.time.LocalDateTime;
-import java.util.List;
+import com.eliasgonzalez.cartones.common.exception.ErrorResponse;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import io.github.eliasss3990.openflags.core.OpenFlagsClient;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Kill switch del módulo ruta — controlado por el flag openflags
@@ -55,8 +58,11 @@ public class RutaKillSwitchInterceptor implements HandlerInterceptor {
         if (enabled) {
             return true;
         }
-        log.warn("Módulo ruta deshabilitado por flag '{}', rechazando {} {}",
-                FLAG_RUTA_ENABLED, request.getMethod(), request.getRequestURI());
+        log.warn(
+                "Módulo ruta deshabilitado por flag '{}', rechazando {} {}",
+                FLAG_RUTA_ENABLED,
+                request.getMethod(),
+                request.getRequestURI());
 
         ErrorResponse body = ErrorResponse.builder()
                 .status(HttpStatus.SERVICE_UNAVAILABLE.value())

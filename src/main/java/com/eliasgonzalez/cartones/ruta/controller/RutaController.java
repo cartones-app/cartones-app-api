@@ -1,5 +1,6 @@
 package com.eliasgonzalez.cartones.ruta.controller;
 
+import com.eliasgonzalez.cartones.common.util.MultipartFileValidator;
 import com.eliasgonzalez.cartones.ruta.controller.dto.CargaRutaResponseDTO;
 import com.eliasgonzalez.cartones.ruta.controller.dto.ExportarRutaRequestDTO;
 import com.eliasgonzalez.cartones.ruta.controller.dto.FiltroFechaRequestDTO;
@@ -39,7 +40,8 @@ public class RutaController {
     @PostMapping("/carga")
     public ResponseEntity<CargaRutaResponseDTO> cargarExcel(
             @RequestParam("file") MultipartFile file) {
-        log.debug("POST /api/ruta/carga - archivo: {}", file.getOriginalFilename());
+        log.debug("POST /api/ruta/carga - archivo: {}", file != null ? file.getOriginalFilename() : "null");
+        MultipartFileValidator.validarXlsx(file);
         CargaRutaResponseDTO response = rutaExcelLectorService.cargarExcel(file);
         return ResponseEntity.ok(response);
     }

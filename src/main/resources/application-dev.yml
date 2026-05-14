@@ -17,12 +17,13 @@ spring:
   # Keycloak como Authorization Server
   # issuer-uri: URL pública del realm (usada para validar el claim 'iss' del JWT)
   # jwk-set-uri: URL interna (usada por el backend para obtener las claves públicas)
+  # Sin defaults: deben venir de variables de entorno también en dev (ver .env.example).
   security:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8080/realms/cartones}
-          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://localhost:8080/realms/cartones/protocol/openid-connect/certs}
+          issuer-uri: ${KEYCLOAK_ISSUER_URI}
+          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI}
 
 server:
   error:

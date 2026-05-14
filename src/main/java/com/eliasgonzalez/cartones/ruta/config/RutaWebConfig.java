@@ -19,7 +19,6 @@ public class RutaWebConfig implements WebMvcConfigurer {
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(killSwitch)
-                .addPathPatterns("/api/ruta/**", "/api/admin/ruta/**");
+        registry.addInterceptor(killSwitch).addPathPatterns("/api/ruta/**", "/api/admin/ruta/**");
     }
 }

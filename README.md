@@ -15,24 +15,28 @@ Sistema de gestión para vendedores y cartones de bingo. API REST en Spring Boot
 | Autenticación | Keycloak 26 (OAuth2 / JWT) |
 | Excel | Apache POI 5.2.5 |
 | PDFs | OpenPDF 1.3.30 |
+| Rate limiting | Bucket4j 8.10 (in-memory, uploads) |
 | Migraciones | Flyway |
 | Contenedores | Docker / Docker Compose |
 | Staging | Railway (backend + Postgres + Keycloak dedicados) |
-| Producción | VPS Hetzner (Cloudflare Tunnel + nginx-proxy) |
-| Frontend | Next.js en Vercel (staging) / VPS (prod) |
-| CI / Seguridad | GitHub Actions + CodeQL (`security-extended`) |
+| Producción | VPS Hetzner ARM64 (Cloudflare Tunnel + nginx-proxy) |
+| Frontend | Next.js 16 en Vercel (staging) / VPS (prod) — `cartones-app/cartones-app-web` |
+| CI / Seguridad | GitHub Actions (self-hosted runner ARM64) + CodeQL (`security-extended`) |
 
 ---
 
 ## Modelo de ramas
 
-| Rama | Uso | Despliegue |
-|------|-----|-----------|
-| `master` | Producción | Push → workflow `deploy-vps.yml` → VPS (`cartones.eliasg.uk`) |
-| `develop` | Staging | Push → CI workflows → al pasar, Railway despliega (`backend-staging-de76.up.railway.app`) |
-| `next` | Integración | Solo corre CI + CodeQL; no despliega |
+| Rama | Ambiente | Host | Despliegue |
+|------|----------|------|-----------|
+| `master` | Producción | VPS (`cartones.eliasg.uk`) | Push → workflow `deploy-vps.yml` → self-hosted runner ARM64 |
+| `develop` | Staging | Railway (`backend-staging-de76.up.railway.app`) | Push → CI workflows verdes → Railway redeploya (`Wait for CI` activado) |
+| `next` | Integración | — | Solo corre CI + CodeQL; sprints / features mergean acá primero |
+| `feat/*`, `chore/*`, `fix/*` | Trabajo | — | mergean a `next` vía PR |
 
-Railway tiene `Wait for CI` activado: solo despliega `develop` cuando los workflows `CI` + `CodeQL` pasan en GitHub.
+`master` lleva tags futuros (`v1.x.x`); `develop` y `next` siempre `-SNAPSHOT`.
+
+Branch protection activa en `master` (requiere PR + linear history + conversation resolution) y `develop` (requiere PR).
 
 ---
 
@@ -57,12 +61,14 @@ El perfil `local` deshabilita toda autenticación. Útil para probar endpoints r
 ### Opción B — Con Docker Compose (PostgreSQL + Keycloak + Backend)
 
 **1. Copiar y configurar variables de entorno:**
+
 ```bash
 cp .env.example .env
 # Editar .env con tus valores
 ```
 
 **2. Configurar secretos de base de datos:**
+
 ```bash
 cp secrets_store/db_user.txt.example secrets_store/db_user.txt
 cp secrets_store/db_password.txt.example secrets_store/db_password.txt
@@ -70,11 +76,13 @@ cp secrets_store/db_password.txt.example secrets_store/db_password.txt
 ```
 
 **3. Levantar todos los servicios:**
+
 ```bash
 docker compose up -d --build
 ```
 
 Esto levanta tres contenedores:
+
 - `postgres_cartones_db` — PostgreSQL en el puerto `PORT_DB`
 - `cartones_keycloak` — Keycloak en el puerto `PORT_KEYCLOAK` (default 8080)
 - `cartones_backend` — Spring Boot en el puerto `PORT_BACKEND`
@@ -82,12 +90,14 @@ Esto levanta tres contenedores:
 Keycloak importa automáticamente el realm `cartones` desde `keycloak/realm-cartones.json`.
 
 **Ver logs:**
+
 ```bash
 docker compose logs -f backend
 docker compose logs -f keycloak
 ```
 
 **Detener:**
+
 ```bash
 docker compose down
 ```
@@ -127,6 +137,7 @@ curl -s -X POST http://localhost:8080/realms/cartones/protocol/openid-connect/to
 ```
 
 Usuarios demo del realm (contraseñas temporales — cambiar al primer login):
+
 - `admin` / `admin123` → rol `ADMIN`
 - `distribuidor` / `distribuidor123` → rol `DISTRIBUIDOR`
 
@@ -156,6 +167,7 @@ curl -H "Authorization: Bearer <TOKEN>" http://localhost:9001/api/vendedores/<pr
 | `PORT_KEYCLOAK` | `8080` | Puerto de Keycloak expuesto en host |
 | `KEYCLOAK_ADMIN_USER` | `admin` | Usuario admin de Keycloak |
 | `KEYCLOAK_ADMIN_PASSWORD` | `*****` | Contraseña admin de Keycloak |
+| `APP_UPLOADS_RATE_LIMIT_RPM` | `10` | Rate limit por usuario en endpoints de upload |
 
 ### Railway (staging)
 
@@ -180,15 +192,29 @@ Variables del servicio `backend` (referencias a otros servicios via `${{servicio
 | `KEYCLOAK_ISSUER_URI` | `https://keycloak-staging-085a.up.railway.app/realms/cartones` (público — coincide con claim `iss` del JWT) |
 | `KEYCLOAK_JWK_SET_URI` | `http://${{keycloak.RAILWAY_PRIVATE_DOMAIN}}:8080/realms/cartones/protocol/openid-connect/certs` (red privada Railway, sin pasar por edge) |
 
-### VPS (producción)
+### VPS (producción, configurado vía GitHub Variables)
 
-Variables cargadas desde GitHub Variables/Secrets en `deploy-vps.yml`:
+El workflow `.github/workflows/deploy-vps.yml` arma el `.env` del compose en cada deploy combinando **Variables del repo** + **secretos de DB en `/srv/cartones-secrets/`** del host.
 
-| Variable | Descripción |
-|----------|-------------|
-| `FRONTEND_URL` | Origen CORS del frontend de prod |
-| `POSTGRES_DB`, `db_user.txt`, `db_password.txt` | Credenciales BD (los `.txt` viven en `/srv/cartones-secrets/`) |
-| `KEYCLOAK_ISSUER_URI`, `KEYCLOAK_JWK_SET_URI` | Pendiente — Keycloak aún no desplegado en prod (esa es la razón de existir del staging) |
+GitHub `Settings → Secrets and variables → Actions` (Variables, no sensibles):
+
+| Variable | Ejemplo | Descripción |
+|----------|---------|-------------|
+| `FRONTEND_URL` | `https://rgq-cartones.eliasg.uk,https://rgq-web.vercel.app` | Lista de orígenes CORS (split por coma) |
+| `POSTGRES_DB` | `cartones_prod` | Nombre de la base de datos |
+| `HEALTH_URL` | `https://cartones.eliasg.uk/api/vendedores/test` | (Opcional) smoke test post-deploy |
+
+Secretos de DB en el VPS: `/srv/cartones-secrets/db_user.txt` y `db_password.txt` (`chmod 600`, owner del runner).
+
+Variables que el workflow inyecta automáticamente con valores fijos para prod:
+
+| Variable | Valor en prod |
+|----------|--------------|
+| `APP_PROFILE` | `prod` |
+| `DB_DDL_AUTO` | `update` (master, código sin Flyway) o `validate` (develop, con Flyway) |
+| `LOG_LEVEL` | `INFO` |
+| `SPRING_DATASOURCE_USERNAME` / `_PASSWORD` | Leídas de `/srv/cartones-secrets/*` |
+| `KEYCLOAK_ISSUER_URI` / `_JWK_SET_URI` | (Cuando se promueva develop) URL pública del Keycloak en VPS |
 
 ---
 
@@ -207,8 +233,9 @@ Todos con prefijo `/api`. Requieren token JWT excepto donde se indica.
 
 | Método | Ruta | Descripción | Rol mínimo |
 |--------|------|-------------|-----------|
+| `GET` | `/api/distribuciones` | Lista los procesos creados por el usuario actual (filtrado por `sub` del JWT) | `DISTRIBUIDOR` |
 | `POST` | `/api/distribuciones/{procesoId}/simular` | Simula distribución de cartones | `DISTRIBUIDOR` |
-| `GET` | `/api/distribuciones/{procesoId}/pdfs` | Descarga ZIP con PDFs de etiquetas y resumen | `DISTRIBUIDOR` |
+| `GET` | `/api/distribuciones/{procesoId}/pdfs` | Descarga ZIP con PDFs (valida ownership: 404 si no es dueño) | `DISTRIBUIDOR` |
 
 ### Ruta (recorrido de cobro)
 
@@ -217,6 +244,13 @@ Todos con prefijo `/api`. Requieren token JWT excepto donde se indica.
 | `POST` | `/api/ruta/carga` | Carga Excel de ruta, crea sesión | `DISTRIBUIDOR` |
 | `POST` | `/api/ruta/{sesionId}/registros` | Filtra registros por fechas | `DISTRIBUIDOR` |
 | `POST` | `/api/ruta/{sesionId}/exportar` | Exporta Excel con valores completados | `DISTRIBUIDOR` |
+
+### Admin — Distribuciones
+
+| Método | Ruta | Descripción | Rol |
+|--------|------|-------------|-----|
+| `GET` | `/api/admin/distribuciones` | Lista todos los procesos del sistema (vista global) | `ADMIN` |
+| `GET` | `/api/admin/distribuciones/{procesoId}/pdfs` | Descarga ZIP de cualquier proceso (sin ownership) | `ADMIN` |
 
 ### Admin — Sesiones de Ruta
 
@@ -265,17 +299,34 @@ mvn test -Dtest=NombreDeClase
 
 ## Despliegue (CI/CD)
 
-### Staging (Railway)
+### Producción — VPS (`master`)
+
+Push a `master` dispara `.github/workflows/deploy-vps.yml`:
+
+1. Self-hosted runner en el VPS (`cartones-runner`, labels `[self-hosted, linux, arm64]`).
+2. Checkout, copia secretos de DB desde `/srv/cartones-secrets/`.
+3. Genera `.env` desde GitHub Variables.
+4. `docker compose up -d --build` con BuildKit cache `--mount=type=cache,target=/root/.m2` (preserva `~/.m2` entre builds).
+5. Espera health del contenedor.
+6. Smoke test público vía `HEALTH_URL` con reintentos (cubre toda la cadena Cloudflare → tunnel → nginx → backend).
+7. Prune de imágenes viejas.
+
+Topología en VPS: `Internet → Cloudflare (cartones.eliasg.uk) → cloudflared tunnel → nginx-proxy → cartones_backend:9001`.
+El backend joinea la network externa `proxy` (creada por `~/infra-claude/vps`) y no expone puertos al host.
+
+### Staging — Railway (`develop`)
 
 1. Push a `develop` → GitHub Actions corre `ci.yml` (Spotless + build) y `codeql.yml`.
 2. Railway escucha el check-suite de GitHub (`Wait for CI = true`).
 3. Cuando los checks pasan, Railway construye con el Dockerfile y despliega.
 4. Healthcheck: `/actuator/health` (timeout 300s, restart on failure x3).
 
-### Producción (VPS)
-
-Push a `master` → workflow `deploy-vps.yml` (self-hosted runner en el VPS) → `docker compose up` con el código nuevo en la network externa `proxy`.
-
-El tráfico entra por Cloudflare Tunnel → nginx-proxy → contenedor backend en `cartones.eliasg.uk`.
-
 El Dockerfile usa build multi-stage (Maven → Alpine JRE) con `-DskipTests` y `-XX:MaxRAMPercentage=60.0` (override en Railway: `75.0` via `JAVA_TOOL_OPTIONS`).
+
+### Integración continua (PRs y push a `next`/`develop`)
+
+- `.github/workflows/ci.yml`: corre `mvn spotless:check + verify` en `ubuntu-latest` GitHub-hosted (no carga el self-hosted).
+- `.github/workflows/codeql.yml`: análisis estático Java con queries `security-extended`. PRs + pushes + cron lunes.
+
+Spotless con `ratchetFrom origin/next` solo verifica archivos cambiados desde la rama de integración (no toca código existente).
+Para corregir formato local: `mvn spotless:apply`.
