@@ -91,6 +91,10 @@ public class SecurityConfig {
     public JwtAuthenticationConverter jwtAuthenticationConverter() {
         JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
         converter.setJwtGrantedAuthoritiesConverter(new KeycloakRolesConverter());
+        // Sin este override Spring usa el claim "sub", que en Keycloak es el UUID
+        // del usuario. Queremos el username humano para auditing (createdBy) y
+        // filtros por owner (findByCreatedBy(auth.getName())).
+        converter.setPrincipalClaimName("preferred_username");
         return converter;
     }
 
