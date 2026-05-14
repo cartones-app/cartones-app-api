@@ -25,7 +25,11 @@ public class JpaAuditConfig {
             if (auth == null || !auth.isAuthenticated()) {
                 return Optional.of("sistema");
             }
-            return Optional.of(auth.getName());
+            // AnonymousAuthenticationToken.isAuthenticated() devuelve true pero
+            // getName() puede ser null si el principal no tiene nombre configurado.
+            // Sin este fallback, JPA Auditing entra en NPE durante el persist.
+            String name = auth.getName();
+            return Optional.of(name != null && !name.isBlank() ? name : "sistema");
         };
     }
 }
