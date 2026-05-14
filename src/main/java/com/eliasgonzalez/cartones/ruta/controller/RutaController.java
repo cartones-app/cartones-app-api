@@ -1,15 +1,9 @@
 package com.eliasgonzalez.cartones.ruta.controller;
 
-import com.eliasgonzalez.cartones.common.util.MultipartFileValidator;
-import com.eliasgonzalez.cartones.ruta.controller.dto.CargaRutaResponseDTO;
-import com.eliasgonzalez.cartones.ruta.controller.dto.ExportarRutaRequestDTO;
-import com.eliasgonzalez.cartones.ruta.controller.dto.FiltroFechaRequestDTO;
-import com.eliasgonzalez.cartones.ruta.controller.dto.RegistroRutaDTO;
-import com.eliasgonzalez.cartones.ruta.service.RutaExcelExportadorService;
-import com.eliasgonzalez.cartones.ruta.service.RutaExcelLectorService;
+import java.util.List;
+
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -17,7 +11,17 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.List;
+import com.eliasgonzalez.cartones.common.logging.LogSanitizer;
+import com.eliasgonzalez.cartones.common.util.MultipartFileValidator;
+import com.eliasgonzalez.cartones.ruta.controller.dto.CargaRutaResponseDTO;
+import com.eliasgonzalez.cartones.ruta.controller.dto.ExportarRutaRequestDTO;
+import com.eliasgonzalez.cartones.ruta.controller.dto.FiltroFechaRequestDTO;
+import com.eliasgonzalez.cartones.ruta.controller.dto.RegistroRutaDTO;
+import com.eliasgonzalez.cartones.ruta.service.RutaExcelExportadorService;
+import com.eliasgonzalez.cartones.ruta.service.RutaExcelLectorService;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Endpoints del flujo de ruta para el distribuidor.
@@ -38,9 +42,10 @@ public class RutaController {
      * El frontend usa el sesionId para todos los pasos siguientes.
      */
     @PostMapping("/carga")
-    public ResponseEntity<CargaRutaResponseDTO> cargarExcel(
-            @RequestParam("file") MultipartFile file) {
-        log.debug("POST /api/ruta/carga - archivo: {}", file != null ? file.getOriginalFilename() : "null");
+    public ResponseEntity<CargaRutaResponseDTO> cargarExcel(@RequestParam("file") MultipartFile file) {
+        log.debug(
+                "POST /api/ruta/carga - archivo: {}",
+                file != null ? LogSanitizer.safe(file.getOriginalFilename()) : "null");
         MultipartFileValidator.validarXlsx(file);
         CargaRutaResponseDTO response = rutaExcelLectorService.cargarExcel(file);
         return ResponseEntity.ok(response);
@@ -52,9 +57,11 @@ public class RutaController {
      */
     @PostMapping("/{sesionId}/registros")
     public ResponseEntity<List<RegistroRutaDTO>> obtenerRegistros(
-            @PathVariable String sesionId,
-            @Valid @RequestBody FiltroFechaRequestDTO request) {
-        log.debug("POST /api/ruta/{}/registros - fechas: {}", sesionId, request.getFechas());
+            @PathVariable String sesionId, @Valid @RequestBody FiltroFechaRequestDTO request) {
+        log.debug(
+                "POST /api/ruta/{}/registros - fechas: {}",
+                LogSanitizer.safe(sesionId),
+                LogSanitizer.safe(request.getFechas()));
         List<RegistroRutaDTO> registros = rutaExcelLectorService.filtrarPorFechas(sesionId, request.getFechas());
         return ResponseEntity.ok(registros);
     }
@@ -65,16 +72,19 @@ public class RutaController {
      */
     @PostMapping("/{sesionId}/exportar")
     public ResponseEntity<byte[]> exportar(
-            @PathVariable String sesionId,
-            @Valid @RequestBody ExportarRutaRequestDTO request) {
-        log.debug("POST /api/ruta/{}/exportar - {} registros", sesionId, request.getRegistros().size());
+            @PathVariable String sesionId, @Valid @RequestBody ExportarRutaRequestDTO request) {
+        log.debug(
+                "POST /api/ruta/{}/exportar - {} registros",
+                LogSanitizer.safe(sesionId),
+                request.getRegistros().size());
         byte[] excelBytes = rutaExcelExportadorService.exportar(sesionId, request.getRegistros());
 
         HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.parseMediaType(
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
-        headers.setContentDisposition(
-            ContentDisposition.attachment().filename("ruta_" + sesionId + ".xlsx").build());
+        headers.setContentType(
+                MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+        headers.setContentDisposition(ContentDisposition.attachment()
+                .filename("ruta_" + sesionId + ".xlsx")
+                .build());
 
         return ResponseEntity.ok().headers(headers).body(excelBytes);
     }

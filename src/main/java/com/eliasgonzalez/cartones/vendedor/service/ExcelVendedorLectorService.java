@@ -14,6 +14,7 @@ import org.springframework.web.multipart.MultipartFile;
 import com.eliasgonzalez.cartones.common.excel.AbstractExcelParser;
 import com.eliasgonzalez.cartones.common.exception.ExcelProcessingException;
 import com.eliasgonzalez.cartones.common.exception.FileProcessingException;
+import com.eliasgonzalez.cartones.common.logging.LogSanitizer;
 import com.eliasgonzalez.cartones.common.util.ExcelUtil;
 import com.eliasgonzalez.cartones.common.util.TextoUtil;
 import com.eliasgonzalez.cartones.vendedor.controller.dto.CargaVendedoresResponseDTO;
@@ -52,7 +53,7 @@ public class ExcelVendedorLectorService extends AbstractExcelParser {
 
     @Transactional
     public CargaVendedoresResponseDTO leerExcel(MultipartFile file, String procesoIdCreado) {
-        log.info("Iniciando procesamiento del archivo Excel: {}", file.getOriginalFilename());
+        log.info("Iniciando procesamiento del archivo Excel: {}", LogSanitizer.safe(file.getOriginalFilename()));
 
         List<String> erroresGlobales = new ArrayList<>();
         List<ProcesoDistribucionVendedor> registrosParaGuardar = new ArrayList<>();
@@ -93,7 +94,10 @@ public class ExcelVendedorLectorService extends AbstractExcelParser {
                 } catch (Exception e) {
                     String errorMessage =
                             String.format("Fila %d: Error inesperado al procesar: %s", filaActual, e.getMessage());
-                    log.error(errorMessage);
+                    // Patrón SLF4J: pasar como placeholder, no la string ya armada
+                    // (evita que SLF4J reinterprete `{}` y mitiga log-injection).
+                    log.error(
+                            "Fila {}: Error inesperado al procesar: {}", filaActual, LogSanitizer.safe(e.getMessage()));
                     erroresGlobales.add(errorMessage);
                 }
             }
@@ -127,10 +131,11 @@ public class ExcelVendedorLectorService extends AbstractExcelParser {
                     .build();
 
         } catch (ExcelProcessingException | FileProcessingException e) {
+            // erroresGlobales contiene contenido derivado de celdas del Excel (user input).
             log.error(
                     "[INTERNO] Fallo en el procesamiento del Excel. Errores: {}. Mensaje: {}",
-                    erroresGlobales,
-                    e.getMessage());
+                    LogSanitizer.safe(erroresGlobales),
+                    LogSanitizer.safe(e.getMessage()));
             throw e;
         } catch (Exception e) {
             log.error("Fallo crítico en el procesamiento del Excel", e);

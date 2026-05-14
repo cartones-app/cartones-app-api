@@ -1,16 +1,19 @@
 package com.eliasgonzalez.cartones.distribucion.service;
 
-import com.eliasgonzalez.cartones.distribucion.controller.dto.SimulacionRequestDTO;
-import com.eliasgonzalez.cartones.distribucion.controller.dto.VendedorSimuladoDTO;
-import com.eliasgonzalez.cartones.distribucion.controller.dto.VendedorInputDTO;
-import com.eliasgonzalez.cartones.distribucion.controller.dto.RangoCortadoDTO;
-import com.eliasgonzalez.cartones.distribucion.service.dto.RangoLogico;
-import lombok.extern.slf4j.Slf4j;
+import java.util.*;
+import java.util.stream.Collectors;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.*;
-import java.util.stream.Collectors;
+import com.eliasgonzalez.cartones.common.exception.UnprocessableEntityException;
+import com.eliasgonzalez.cartones.distribucion.controller.dto.RangoCortadoDTO;
+import com.eliasgonzalez.cartones.distribucion.controller.dto.SimulacionRequestDTO;
+import com.eliasgonzalez.cartones.distribucion.controller.dto.VendedorInputDTO;
+import com.eliasgonzalez.cartones.distribucion.controller.dto.VendedorSimuladoDTO;
+import com.eliasgonzalez.cartones.distribucion.service.dto.RangoLogico;
+
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @Slf4j
@@ -26,20 +29,20 @@ public class DistribucionAlgoritmoService {
 
         // 1. CALCULAR DEMANDA
         int demandaTotalSenete = request.getVendedores().stream()
-                .mapToInt(v -> v.getCantidadSenete() == null ? 0 : v.getCantidadSenete()).sum();
+                .mapToInt(v -> v.getCantidadSenete() == null ? 0 : v.getCantidadSenete())
+                .sum();
 
         int demandaTotalTelebingo = request.getVendedores().stream()
-                .mapToInt(v -> v.getCantidadTelebingo() == null ? 0 : v.getCantidadTelebingo()).sum();
+                .mapToInt(v -> v.getCantidadTelebingo() == null ? 0 : v.getCantidadTelebingo())
+                .sum();
 
         // 2. CONVERTIR POOLS (Pilas de papel)
         // Nota: Creamos pools grandes para soportar el desperdicio "ilimitado"
-        LinkedList<RangoLogico> poolSenete = convertirPool(
-                request.getPoolSenete(), request.getInicioSeneteGral(), demandaTotalSenete
-        );
+        LinkedList<RangoLogico> poolSenete =
+                convertirPool(request.getPoolSenete(), request.getInicioSeneteGral(), demandaTotalSenete);
 
-        LinkedList<RangoLogico> poolTelebingo = convertirPool(
-                request.getPoolTelebingo(), request.getInicioTelebingoGral(), demandaTotalTelebingo
-        );
+        LinkedList<RangoLogico> poolTelebingo =
+                convertirPool(request.getPoolTelebingo(), request.getInicioTelebingoGral(), demandaTotalTelebingo);
 
         // 3. MEZCLA ÚNICA (Orden Sagrado)
         List<VendedorInputDTO> vendedoresOrdenados = new ArrayList<>(request.getVendedores());
@@ -68,20 +71,23 @@ public class DistribucionAlgoritmoService {
                 .collect(Collectors.toList());
     }
 
-    private void procesarFilaConDesperdicioIlimitado(LinkedList<RangoLogico> pool,
-                                                     List<VendedorInputDTO> vendedoresEnOrden,
-                                                     boolean esSenete,
-                                                     Map<Long, List<String>> mapaResultados) {
+    private void procesarFilaConDesperdicioIlimitado(
+            LinkedList<RangoLogico> pool,
+            List<VendedorInputDTO> vendedoresEnOrden,
+            boolean esSenete,
+            Map<Long, List<String>> mapaResultados) {
 
         for (VendedorInputDTO vendedorOriginal : vendedoresEnOrden) {
 
             // Obtenemos la cantidad necesaria para ESTE juego
-            int cantidadNecesaria = esSenete ? (vendedorOriginal.getCantidadSenete() == null ? 0 : vendedorOriginal.getCantidadSenete())
+            int cantidadNecesaria = esSenete
+                    ? (vendedorOriginal.getCantidadSenete() == null ? 0 : vendedorOriginal.getCantidadSenete())
                     : (vendedorOriginal.getCantidadTelebingo() == null ? 0 : vendedorOriginal.getCantidadTelebingo());
 
             if (cantidadNecesaria <= 0) continue;
 
-            Integer terminacion = esSenete ? vendedorOriginal.getTerminacionSenete() : vendedorOriginal.getTerminacionTelebingo();
+            Integer terminacion =
+                    esSenete ? vendedorOriginal.getTerminacionSenete() : vendedorOriginal.getTerminacionTelebingo();
             boolean esVip = (terminacion != null && terminacion >= 0);
 
             // BUCLE: El vendedor se queda en ventanilla hasta completar su pedido
@@ -126,20 +132,20 @@ public class DistribucionAlgoritmoService {
                     rangoActual.setInicio(rangoActual.getInicio() + aQuemar);
                     consumirBloqueSiVacio(pool, rangoActual);
                     // NO restamos cantidadNecesaria, el vendedor sigue esperando.
-                }
-                else if (aTomar > 0) {
+                } else if (aTomar > 0) {
                     // Asignamos al vendedor
                     int finCorte = rangoActual.getInicio() + aTomar - 1;
                     String rangoStr = rangoActual.getInicio() + "-" + finCorte;
 
-                    mapaResultados.computeIfAbsent(vendedorOriginal.getId(), k -> new ArrayList<>()).add(rangoStr);
+                    mapaResultados
+                            .computeIfAbsent(vendedorOriginal.getId(), k -> new ArrayList<>())
+                            .add(rangoStr);
 
                     rangoActual.setInicio(finCorte + 1);
                     consumirBloqueSiVacio(pool, rangoActual);
 
                     cantidadNecesaria -= aTomar;
-                }
-                else {
+                } else {
                     // Caso borde (pool vacío o error)
                     pool.removeFirst();
                 }
@@ -173,17 +179,47 @@ public class DistribucionAlgoritmoService {
 
     // --- MÉTODOS AUXILIARES ---
 
-    private LinkedList<RangoLogico> convertirPool(List<RangoCortadoDTO> rangosCortados, Integer inicioGeneral, int demandaTotal) {
+    private LinkedList<RangoLogico> convertirPool(
+            List<RangoCortadoDTO> rangosCortados, Integer inicioGeneral, int demandaTotal) {
         if (rangosCortados != null && !rangosCortados.isEmpty()) {
+            // Validar inicio/fin del request antes de construir RangoLogico.
+            // Si llegan valores extremos (overflow al hacer fin-inicio, o fin<inicio)
+            // RangoLogico.getCantidad() lanzaría IllegalArgumentException más adelante
+            // y caería en handleAllExceptions (500). Acá lo convertimos en
+            // UnprocessableEntityException (422), semánticamente correcto.
             return rangosCortados.stream()
-                    .map(d -> new RangoLogico(d.getInicio(), d.getFin()))
+                    .map(d -> {
+                        if (d.getFin() < d.getInicio()) {
+                            throw new UnprocessableEntityException(
+                                    "Rango inválido en el pool: fin < inicio.",
+                                    List.of("inicio=" + d.getInicio() + ", fin=" + d.getFin()));
+                        }
+                        try {
+                            Math.addExact(Math.subtractExact(d.getFin(), d.getInicio()), 1);
+                        } catch (ArithmeticException ex) {
+                            throw new UnprocessableEntityException(
+                                    "Rango inválido en el pool: produce overflow al calcular la cantidad.",
+                                    List.of("inicio=" + d.getInicio() + ", fin=" + d.getFin()));
+                        }
+                        return new RangoLogico(d.getInicio(), d.getFin());
+                    })
                     .collect(Collectors.toCollection(LinkedList::new));
         }
         if (inicioGeneral != null) {
             LinkedList<RangoLogico> poolAjustado = new LinkedList<>();
             // Multiplicamos x4 o x5 la demanda total para tener suficiente papel para quemar
 
-            int finCalculado = inicioGeneral + demandaTotal + MARGEN_SEGURIDAD;
+            // Math.addExact protege contra overflow si inicioGeneral o demandaTotal
+            // viajan desde el request (user-controlled): un valor cercano a INT_MAX
+            // wrapearía a negativo y dejaría rangos absurdos en el algoritmo.
+            int finCalculado;
+            try {
+                finCalculado = Math.addExact(Math.addExact(inicioGeneral, demandaTotal), MARGEN_SEGURIDAD);
+            } catch (ArithmeticException ex) {
+                throw new UnprocessableEntityException(
+                        "Los valores de inicio y demanda son demasiado grandes para el cálculo del pool.",
+                        List.of("inicioGeneral=" + inicioGeneral, "demandaTotal=" + demandaTotal));
+            }
             log.info("El fin calculado es: {}", finCalculado);
 
             poolAjustado.add(new RangoLogico(inicioGeneral, finCalculado));
@@ -193,19 +229,24 @@ public class DistribucionAlgoritmoService {
     }
 
     private void validarConfiguracion(SimulacionRequestDTO request) {
-        boolean tieneSenete = (request.getPoolSenete() != null && !request.getPoolSenete().isEmpty())
-                || request.getInicioSeneteGral() != null;
-        boolean tieneTelebingo = (request.getPoolTelebingo() != null && !request.getPoolTelebingo().isEmpty())
+        boolean tieneSenete =
+                (request.getPoolSenete() != null && !request.getPoolSenete().isEmpty())
+                        || request.getInicioSeneteGral() != null;
+        boolean tieneTelebingo = (request.getPoolTelebingo() != null
+                        && !request.getPoolTelebingo().isEmpty())
                 || request.getInicioTelebingoGral() != null;
 
         if (!tieneSenete && !tieneTelebingo) {
-            throw new IllegalArgumentException("Debes configurar al menos un rango para Seneté o Telebingo.");
+            throw new UnprocessableEntityException(
+                    "Debes configurar al menos un rango para Seneté o Telebingo.", List.of());
         }
     }
 
     private int extraerInicioOrdenamiento(VendedorSimuladoDTO dto) {
-        List<String> rangos = (dto.getRangosSenete() != null && !dto.getRangosSenete().isEmpty())
-                ? dto.getRangosSenete() : dto.getRangosTelebingo();
+        List<String> rangos =
+                (dto.getRangosSenete() != null && !dto.getRangosSenete().isEmpty())
+                        ? dto.getRangosSenete()
+                        : dto.getRangosTelebingo();
 
         if (rangos == null || rangos.isEmpty()) return Integer.MAX_VALUE;
         String primerRango = rangos.get(0);

@@ -1,24 +1,5 @@
 package com.eliasgonzalez.cartones.ruta.service;
 
-import com.eliasgonzalez.cartones.common.excel.AbstractExcelParser;
-import com.eliasgonzalez.cartones.common.exception.ExcelProcessingException;
-import com.eliasgonzalez.cartones.common.exception.ResourceNotFoundException;
-import com.eliasgonzalez.cartones.common.util.TextoUtil;
-import com.eliasgonzalez.cartones.ruta.controller.dto.RegistroRutaDTO;
-import com.eliasgonzalez.cartones.ruta.domain.SesionRuta;
-import com.eliasgonzalez.cartones.ruta.domain.SesionRutaRegistro;
-import com.eliasgonzalez.cartones.ruta.domain.enums.EstadoSesionEnum;
-import com.eliasgonzalez.cartones.ruta.domain.enums.RutaColumnaEnum;
-import com.eliasgonzalez.cartones.ruta.repository.SesionRutaRegistroRepository;
-import com.eliasgonzalez.cartones.ruta.repository.SesionRutaRepository;
-import com.eliasgonzalez.cartones.vendedor.domain.Vendedor;
-import com.eliasgonzalez.cartones.vendedor.repository.VendedorRepository;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.poi.ss.usermodel.*;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -29,6 +10,28 @@ import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+
+import org.apache.poi.ss.usermodel.*;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.eliasgonzalez.cartones.common.excel.AbstractExcelParser;
+import com.eliasgonzalez.cartones.common.exception.ExcelProcessingException;
+import com.eliasgonzalez.cartones.common.exception.ResourceNotFoundException;
+import com.eliasgonzalez.cartones.common.logging.LogSanitizer;
+import com.eliasgonzalez.cartones.common.util.TextoUtil;
+import com.eliasgonzalez.cartones.ruta.controller.dto.RegistroRutaDTO;
+import com.eliasgonzalez.cartones.ruta.domain.SesionRuta;
+import com.eliasgonzalez.cartones.ruta.domain.SesionRutaRegistro;
+import com.eliasgonzalez.cartones.ruta.domain.enums.EstadoSesionEnum;
+import com.eliasgonzalez.cartones.ruta.domain.enums.RutaColumnaEnum;
+import com.eliasgonzalez.cartones.ruta.repository.SesionRutaRegistroRepository;
+import com.eliasgonzalez.cartones.ruta.repository.SesionRutaRepository;
+import com.eliasgonzalez.cartones.vendedor.domain.Vendedor;
+import com.eliasgonzalez.cartones.vendedor.repository.VendedorRepository;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Escribe los datos completados por el distribuidor en el Excel de ruta,
@@ -53,10 +56,10 @@ public class RutaExcelExportadorService extends AbstractExcelParser {
      */
     @Transactional
     public byte[] exportar(String sesionId, List<RegistroRutaDTO> registros) {
-        SesionRuta sesion = sesionRutaRepo.findBySesionId(sesionId)
-            .orElseThrow(() -> new ResourceNotFoundException(
-                "Sesión de ruta con ID " + sesionId + " no encontrada.", List.of()
-            ));
+        SesionRuta sesion = sesionRutaRepo
+                .findBySesionId(sesionId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Sesión de ruta con ID " + sesionId + " no encontrada.", List.of()));
 
         byte[] excelModificado;
         try (Workbook wb = WorkbookFactory.create(new ByteArrayInputStream(sesion.getArchivoExcel()))) {
@@ -71,15 +74,14 @@ public class RutaExcelExportadorService extends AbstractExcelParser {
                 int fila = dto.getNumeroFila();
                 if (fila < 0 || fila > ultimaFila) {
                     erroresFila.add(String.format(
-                        "numeroFila=%d fuera de rango [0, %d] (vendedor: '%s')",
-                        fila, ultimaFila, dto.getNombre()));
+                            "numeroFila=%d fuera de rango [0, %d] (vendedor: '%s')",
+                            fila, ultimaFila, dto.getNombre()));
                     continue;
                 }
                 Row row = sheet.getRow(fila);
                 if (row == null) {
                     erroresFila.add(String.format(
-                        "Fila %d vacía o ausente en el Excel (vendedor: '%s')",
-                        fila, dto.getNombre()));
+                            "Fila %d vacía o ausente en el Excel (vendedor: '%s')", fila, dto.getNombre()));
                     continue;
                 }
 
@@ -88,9 +90,12 @@ public class RutaExcelExportadorService extends AbstractExcelParser {
             }
 
             if (!erroresFila.isEmpty()) {
-                log.warn("Sesión {}: {} registro(s) con fila inválida.", sesionId, erroresFila.size());
+                log.warn(
+                        "Sesión {}: {} registro(s) con fila inválida.",
+                        LogSanitizer.safe(sesionId),
+                        erroresFila.size());
                 throw new ExcelProcessingException(
-                    "Hay registros con número de fila inválido para esta sesión.", erroresFila);
+                        "Hay registros con número de fila inválido para esta sesión.", erroresFila);
             }
 
             registroRepo.saveAll(registrosAGuardar);
@@ -106,12 +111,16 @@ public class RutaExcelExportadorService extends AbstractExcelParser {
         } catch (ExcelProcessingException | ResourceNotFoundException e) {
             throw e;
         } catch (IOException e) {
-            throw new ExcelProcessingException("Error al escribir el Excel de exportación: " + e.getMessage(), List.of());
+            throw new ExcelProcessingException(
+                    "Error al escribir el Excel de exportación: " + e.getMessage(), List.of());
         } catch (Exception e) {
             throw new ExcelProcessingException("Error inesperado al exportar: " + e.getMessage(), List.of());
         }
 
-        log.info("Sesión {}: exportación completada. {} registros persistidos.", sesionId, registros.size());
+        log.info(
+                "Sesión {}: exportación completada. {} registros persistidos.",
+                LogSanitizer.safe(sesionId),
+                registros.size());
         return excelModificado;
     }
 
@@ -124,22 +133,20 @@ public class RutaExcelExportadorService extends AbstractExcelParser {
      * Las celdas con fórmula se omiten — Excel las recalcula al abrir el archivo.
      */
     private void escribirColumnasEntrada(Row row, Map<String, Integer> idx, RegistroRutaDTO dto) {
-        escribirEntero(row, idx.get(TextoUtil.normalize(RutaColumnaEnum.SENETE_TOTAL_ENVIADO.getValor())),
-            dto.getSeneteTotalEnviado());
-        escribirEntero(row, idx.get(TextoUtil.normalize(RutaColumnaEnum.TELEBINGO_TOTAL_ENVIADO.getValor())),
-            dto.getTelebingoTotalEnviado());
-        escribirEntero(row, idx.get(TextoUtil.normalize(RutaColumnaEnum.REF_SENETE.getValor())),
-            dto.getRefSenete());
-        escribirEntero(row, idx.get(TextoUtil.normalize(RutaColumnaEnum.REF_TELB.getValor())),
-            dto.getRefTelb());
-        escribirEntero(row, idx.get(TextoUtil.normalize(RutaColumnaEnum.DEV_SEN.getValor())),
-            dto.getDevSen());
-        escribirEntero(row, idx.get(TextoUtil.normalize(RutaColumnaEnum.DEV_TELB.getValor())),
-            dto.getDevTelb());
-        escribirDecimal(row, idx.get(TextoUtil.normalize(RutaColumnaEnum.PAGO1.getValor())),
-            dto.getPago1());
-        escribirDecimal(row, idx.get(TextoUtil.normalize(RutaColumnaEnum.PAGO2.getValor())),
-            dto.getPago2());
+        escribirEntero(
+                row,
+                idx.get(TextoUtil.normalize(RutaColumnaEnum.SENETE_TOTAL_ENVIADO.getValor())),
+                dto.getSeneteTotalEnviado());
+        escribirEntero(
+                row,
+                idx.get(TextoUtil.normalize(RutaColumnaEnum.TELEBINGO_TOTAL_ENVIADO.getValor())),
+                dto.getTelebingoTotalEnviado());
+        escribirEntero(row, idx.get(TextoUtil.normalize(RutaColumnaEnum.REF_SENETE.getValor())), dto.getRefSenete());
+        escribirEntero(row, idx.get(TextoUtil.normalize(RutaColumnaEnum.REF_TELB.getValor())), dto.getRefTelb());
+        escribirEntero(row, idx.get(TextoUtil.normalize(RutaColumnaEnum.DEV_SEN.getValor())), dto.getDevSen());
+        escribirEntero(row, idx.get(TextoUtil.normalize(RutaColumnaEnum.DEV_TELB.getValor())), dto.getDevTelb());
+        escribirDecimal(row, idx.get(TextoUtil.normalize(RutaColumnaEnum.PAGO1.getValor())), dto.getPago1());
+        escribirDecimal(row, idx.get(TextoUtil.normalize(RutaColumnaEnum.PAGO2.getValor())), dto.getPago2());
     }
 
     private void escribirEntero(Row row, Integer colIdx, Integer valor) {
@@ -164,8 +171,7 @@ public class RutaExcelExportadorService extends AbstractExcelParser {
             return row.createCell(colIdx, CellType.NUMERIC);
         }
         if (cell.getCellType() == CellType.FORMULA) {
-            log.warn("Fila {}, columna {}: celda con fórmula omitida en la exportación.",
-                row.getRowNum() + 1, colIdx);
+            log.warn("Fila {}, columna {}: celda con fórmula omitida en la exportación.", row.getRowNum() + 1, colIdx);
             return null;
         }
         return cell;
@@ -176,26 +182,26 @@ public class RutaExcelExportadorService extends AbstractExcelParser {
     // ---------------------------------------------------------------------------
 
     private SesionRutaRegistro construirRegistro(SesionRuta sesion, RegistroRutaDTO dto) {
-        Vendedor vendedor = vendedorRepo.findById(dto.getVendedorId())
-            .orElseThrow(() -> new ResourceNotFoundException(
-                "Vendedor con ID " + dto.getVendedorId() + " no encontrado.", List.of()
-            ));
+        Vendedor vendedor = vendedorRepo
+                .findById(dto.getVendedorId())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Vendedor con ID " + dto.getVendedorId() + " no encontrado.", List.of()));
 
         return SesionRutaRegistro.builder()
-            .sesionRuta(sesion)
-            .vendedor(vendedor)
-            .fecha(parsearFecha(dto.getFecha()))
-            .seneteTotalEnviado(dto.getSeneteTotalEnviado())
-            .telebingoTotalEnviado(dto.getTelebingoTotalEnviado())
-            .refSenete(dto.getRefSenete())
-            .refTelb(dto.getRefTelb())
-            .devSen(dto.getDevSen())
-            .devTelb(dto.getDevTelb())
-            .pago1(dto.getPago1())
-            .pago2(dto.getPago2())
-            .nota(dto.getNota())
-            .completado(true)
-            .build();
+                .sesionRuta(sesion)
+                .vendedor(vendedor)
+                .fecha(parsearFecha(dto.getFecha()))
+                .seneteTotalEnviado(dto.getSeneteTotalEnviado())
+                .telebingoTotalEnviado(dto.getTelebingoTotalEnviado())
+                .refSenete(dto.getRefSenete())
+                .refTelb(dto.getRefTelb())
+                .devSen(dto.getDevSen())
+                .devTelb(dto.getDevTelb())
+                .pago1(dto.getPago1())
+                .pago2(dto.getPago2())
+                .nota(dto.getNota())
+                .completado(true)
+                .build();
     }
 
     /**
@@ -211,7 +217,7 @@ public class RutaExcelExportadorService extends AbstractExcelParser {
                 // intenta el siguiente
             }
         }
-        log.warn("No se pudo parsear la fecha '{}'. Se guardará como null.", fechaStr);
+        log.warn("No se pudo parsear la fecha '{}'. Se guardará como null.", LogSanitizer.safe(fechaStr));
         return null;
     }
 }

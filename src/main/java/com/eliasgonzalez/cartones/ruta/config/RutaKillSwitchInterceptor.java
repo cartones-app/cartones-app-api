@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 import com.eliasgonzalez.cartones.common.exception.ErrorResponse;
+import com.eliasgonzalez.cartones.common.logging.LogSanitizer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.github.eliasss3990.openflags.core.OpenFlagsClient;
@@ -61,8 +62,8 @@ public class RutaKillSwitchInterceptor implements HandlerInterceptor {
         log.warn(
                 "Módulo ruta deshabilitado por flag '{}', rechazando {} {}",
                 FLAG_RUTA_ENABLED,
-                request.getMethod(),
-                request.getRequestURI());
+                LogSanitizer.safe(request.getMethod()),
+                LogSanitizer.safe(request.getRequestURI()));
 
         ErrorResponse body = ErrorResponse.builder()
                 .status(HttpStatus.SERVICE_UNAVAILABLE.value())

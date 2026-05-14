@@ -22,6 +22,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
+import com.eliasgonzalez.cartones.common.logging.LogSanitizer;
+
 import io.github.eliasss3990.openflags.core.OpenFlagsClient;
 import lombok.extern.slf4j.Slf4j;
 
@@ -79,7 +81,10 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ExcelProcessingException.class)
     public ResponseEntity<ErrorResponse> handleExcelProcessingException(
             ExcelProcessingException ex, HttpServletRequest request) {
-        log.error("Error de procesamiento de Excel en {}: {}", request.getRequestURI(), ex.getMessage());
+        log.error(
+                "Error de procesamiento de Excel en {}: {}",
+                LogSanitizer.safe(request.getRequestURI()),
+                LogSanitizer.safe(ex.getMessage()));
         log.debug("Detalles del error Excel:", ex);
         // flag excel.expose-error-details: si false, los detalles quedan en logs
         // pero no se exponen al cliente. Default true (decisión 2026-05-09 del
@@ -95,7 +100,10 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(FileProcessingException.class)
     public ResponseEntity<ErrorResponse> handleFileProcessingException(
             FileProcessingException ex, HttpServletRequest request) {
-        log.error("Error de procesamiento de archivo en {}: {}", request.getRequestURI(), ex.getMessage());
+        log.error(
+                "Error de procesamiento de archivo en {}: {}",
+                LogSanitizer.safe(request.getRequestURI()),
+                LogSanitizer.safe(ex.getMessage()));
         ErrorResponse response = buildErrorResponse(
                 HttpStatus.UNSUPPORTED_MEDIA_TYPE,
                 "Error de Procesamiento de Archivo",
@@ -108,7 +116,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(PdfCreationException.class)
     public ResponseEntity<ErrorResponse> handlePdfCreationException(
             PdfCreationException ex, HttpServletRequest request) {
-        log.error("Error generando PDF en {}: {}", request.getRequestURI(), ex.getMessage(), ex);
+        log.error(
+                "Error generando PDF en {}: {}",
+                LogSanitizer.safe(request.getRequestURI()),
+                LogSanitizer.safe(ex.getMessage()),
+                ex);
         String message =
                 isDevProfile() ? ex.getMessage() : "Error generando el archivo PDF. Contacte al administrador.";
         List<String> details = isDevProfile() ? ex.getErrorDetails() : List.of();
@@ -120,7 +132,10 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(UnprocessableEntityException.class)
     public ResponseEntity<ErrorResponse> handleUnprocessableEntityException(
             UnprocessableEntityException ex, HttpServletRequest request) {
-        log.error("Estado de recurso inválido en {}: {}", request.getRequestURI(), ex.getMessage());
+        log.error(
+                "Estado de recurso inválido en {}: {}",
+                LogSanitizer.safe(request.getRequestURI()),
+                LogSanitizer.safe(ex.getMessage()));
         ErrorResponse response = buildErrorResponse(
                 HttpStatus.UNPROCESSABLE_ENTITY,
                 "Estado de recurso inválido",
@@ -133,7 +148,10 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleResourceNotFoundException(
             ResourceNotFoundException ex, HttpServletRequest request) {
-        log.error("Recurso no encontrado en {}: {}", request.getRequestURI(), ex.getMessage());
+        log.error(
+                "Recurso no encontrado en {}: {}",
+                LogSanitizer.safe(request.getRequestURI()),
+                LogSanitizer.safe(ex.getMessage()));
         ErrorResponse response = buildErrorResponse(
                 HttpStatus.NOT_FOUND, "Recurso no encontrado", ex.getMessage(), ex.getErrorDetails(), request);
         return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
@@ -144,7 +162,7 @@ public class GlobalExceptionHandler {
             MethodArgumentNotValidException ex, HttpServletRequest request) {
         log.warn(
                 "Error de validación en {}: {} campo(s) inválido(s)",
-                request.getRequestURI(),
+                LogSanitizer.safe(request.getRequestURI()),
                 ex.getBindingResult().getErrorCount());
         if (isDevProfile()) {
             ex.getBindingResult()
@@ -167,7 +185,10 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ConstraintViolationException.class)
     public ResponseEntity<ErrorResponse> handleConstraintViolationException(
             ConstraintViolationException ex, HttpServletRequest request) {
-        log.warn("Violación de restricción en {}: {}", request.getRequestURI(), ex.getMessage());
+        log.warn(
+                "Violación de restricción en {}: {}",
+                LogSanitizer.safe(request.getRequestURI()),
+                LogSanitizer.safe(ex.getMessage()));
         List<String> errors = ex.getConstraintViolations().stream()
                 .map(ConstraintViolation::getMessage)
                 .collect(Collectors.toList());
@@ -183,7 +204,10 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MissingServletRequestPartException.class)
     public ResponseEntity<ErrorResponse> handleMissingServletRequestPartException(
             MissingServletRequestPartException ex, HttpServletRequest request) {
-        log.error("Archivo requerido faltante en {}: {}", request.getRequestURI(), ex.getRequestPartName());
+        log.error(
+                "Archivo requerido faltante en {}: {}",
+                LogSanitizer.safe(request.getRequestURI()),
+                LogSanitizer.safe(ex.getRequestPartName()));
         String detailMessage =
                 isDevProfile() ? ex.getMessage() : "Se esperaba un archivo con el nombre: " + ex.getRequestPartName();
         ErrorResponse response = buildErrorResponse(
@@ -198,7 +222,10 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ErrorResponse> handleAccessDeniedException(
             AccessDeniedException ex, HttpServletRequest request) {
-        log.warn("Acceso denegado en {}: {}", request.getRequestURI(), ex.getMessage());
+        log.warn(
+                "Acceso denegado en {}: {}",
+                LogSanitizer.safe(request.getRequestURI()),
+                LogSanitizer.safe(ex.getMessage()));
         ErrorResponse response = buildErrorResponse(
                 HttpStatus.FORBIDDEN,
                 "Acceso Denegado",
@@ -211,7 +238,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<ErrorResponse> handleBadCredentialsException(
             BadCredentialsException ex, HttpServletRequest request) {
-        log.warn("Intento de autenticación fallido en {}", request.getRequestURI());
+        log.warn("Intento de autenticación fallido en {}", LogSanitizer.safe(request.getRequestURI()));
         ErrorResponse response = buildErrorResponse(
                 HttpStatus.UNAUTHORIZED,
                 "Credenciales Inválidas",
@@ -224,7 +251,10 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ErrorResponse> handleAuthenticationException(
             AuthenticationException ex, HttpServletRequest request) {
-        log.warn("Error de autenticación en {}: {}", request.getRequestURI(), ex.getMessage());
+        log.warn(
+                "Error de autenticación en {}: {}",
+                LogSanitizer.safe(request.getRequestURI()),
+                LogSanitizer.safe(ex.getMessage()));
         String message = isDevProfile()
                 ? "Error de autenticación: " + ex.getMessage()
                 : "No estás autenticado o tu token es inválido/expirado.";
@@ -238,8 +268,8 @@ public class GlobalExceptionHandler {
             DataIntegrityViolationException ex, HttpServletRequest request) {
         log.warn(
                 "Violación de integridad en {}: {}",
-                request.getRequestURI(),
-                ex.getMostSpecificCause().getMessage());
+                LogSanitizer.safe(request.getRequestURI()),
+                LogSanitizer.safe(ex.getMostSpecificCause().getMessage()));
         log.debug("Detalle de DataIntegrityViolationException:", ex);
         String message = isDevProfile()
                 ? "Conflicto de integridad: " + ex.getMostSpecificCause().getMessage()
@@ -252,7 +282,10 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<ErrorResponse> handleMaxUploadSizeExceededException(
             MaxUploadSizeExceededException ex, HttpServletRequest request) {
-        log.warn("Tamaño máximo de archivo excedido en {}: {} bytes", request.getRequestURI(), ex.getMaxUploadSize());
+        log.warn(
+                "Tamaño máximo de archivo excedido en {}: {} bytes",
+                LogSanitizer.safe(request.getRequestURI()),
+                ex.getMaxUploadSize());
         log.debug("Detalle de MaxUploadSizeExceededException:", ex);
         ErrorResponse response = buildErrorResponse(
                 HttpStatus.PAYLOAD_TOO_LARGE,
@@ -265,7 +298,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleAllExceptions(Exception ex, HttpServletRequest request) {
-        log.error("Error inesperado en {}: {}", request.getRequestURI(), ex.getMessage(), ex);
+        log.error(
+                "Error inesperado en {}: {}",
+                LogSanitizer.safe(request.getRequestURI()),
+                LogSanitizer.safe(ex.getMessage()),
+                ex);
         String message;
         List<String> details;
         if (isDevProfile()) {

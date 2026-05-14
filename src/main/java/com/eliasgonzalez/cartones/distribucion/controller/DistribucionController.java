@@ -11,6 +11,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import com.eliasgonzalez.cartones.common.logging.LogSanitizer;
 import com.eliasgonzalez.cartones.distribucion.controller.dto.ProcesoDistribucionResumenDTO;
 import com.eliasgonzalez.cartones.distribucion.controller.dto.SimulacionRequestDTO;
 import com.eliasgonzalez.cartones.distribucion.controller.dto.VendedorSimuladoDTO;
@@ -46,8 +47,8 @@ public class DistribucionController {
     public ResponseEntity<List<VendedorSimuladoDTO>> simular(
             @Valid @RequestBody SimulacionRequestDTO solicitud, @PathVariable String procesoId) {
 
-        log.debug("POST /api/distribuciones/{}/simular", procesoId);
-        log.info("Iniciando simulación para el proceso ID: {}", procesoId);
+        log.debug("POST /api/distribuciones/{}/simular", LogSanitizer.safe(procesoId));
+        log.info("Iniciando simulación para el proceso ID: {}", LogSanitizer.safe(procesoId));
         return ResponseEntity.ok(gestionDistribucion.procesarSimulacion(procesoId, solicitud));
     }
 
@@ -58,7 +59,7 @@ public class DistribucionController {
      */
     @GetMapping("/{procesoId}/pdfs")
     public ResponseEntity<Resource> descargar(@PathVariable String procesoId) throws IOException {
-        log.debug("GET /api/distribuciones/{}/pdfs", procesoId);
+        log.debug("GET /api/distribuciones/{}/pdfs", LogSanitizer.safe(procesoId));
         listadoService.verificarOwnership(procesoId);
 
         Resource zip = gestionArchivoPdf.generarPaqueteZip(procesoId);

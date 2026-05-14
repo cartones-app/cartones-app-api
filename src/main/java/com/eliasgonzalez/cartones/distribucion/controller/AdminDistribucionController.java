@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import com.eliasgonzalez.cartones.common.logging.LogSanitizer;
 import com.eliasgonzalez.cartones.distribucion.controller.dto.ProcesoDistribucionResumenDTO;
 import com.eliasgonzalez.cartones.distribucion.service.DistribucionDescargaService;
 import com.eliasgonzalez.cartones.distribucion.service.DistribucionListadoService;
@@ -50,7 +51,7 @@ public class AdminDistribucionController {
      */
     @GetMapping("/{procesoId}/pdfs")
     public ResponseEntity<Resource> descargar(@PathVariable String procesoId) throws IOException {
-        log.debug("GET /api/admin/distribuciones/{}/pdfs", procesoId);
+        log.debug("GET /api/admin/distribuciones/{}/pdfs", LogSanitizer.safe(procesoId));
         Resource zip = gestionArchivoPdf.generarPaqueteZip(procesoId);
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType("application/zip"))
