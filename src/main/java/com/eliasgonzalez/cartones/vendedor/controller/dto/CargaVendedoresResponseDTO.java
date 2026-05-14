@@ -6,7 +6,7 @@ import java.util.List;
 
 @NoArgsConstructor
 @AllArgsConstructor
-@Setter @ToString
+@Getter @Setter @ToString
 @Builder
 public class CargaVendedoresResponseDTO {
 
