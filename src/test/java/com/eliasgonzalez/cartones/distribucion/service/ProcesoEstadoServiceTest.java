@@ -13,67 +13,67 @@ import com.eliasgonzalez.cartones.distribucion.domain.enums.EstadoEnum;
 /**
  * Tests de la máquina de estados de ProcesoDistribucion.
  *
- * Estados: PENDIENTE → VERIFICANDO → COMPLETADO.
+ * Estados: PENDIENTE → SIMULADO → COMPLETADO.
  *
- * Detalle no obvio: PendienteToVerificando acepta estado origen
- * tanto PENDIENTE como VERIFICANDO (idempotencia para retry seguro).
- * VerificandoToCompletado solo acepta VERIFICANDO (no idempotente).
+ * Detalle no obvio: PendienteToSimulado acepta estado origen
+ * tanto PENDIENTE como SIMULADO (idempotencia para retry seguro).
+ * SimuladoToCompletado solo acepta SIMULADO (no idempotente).
  */
 class ProcesoEstadoServiceTest {
 
     @Test
-    void pendienteToVerificando_pendienteSeMueveAVerificando() {
+    void pendienteToSimulado_pendienteSeMueveASimulado() {
         ProcesoDistribucion p = procesoEnEstado(EstadoEnum.PENDIENTE);
 
-        ProcesoEstadoService.PendienteToVerificando("p-1", p);
+        ProcesoEstadoService.PendienteToSimulado("p-1", p);
 
-        assertThat(p.getEstado()).isEqualTo(EstadoEnum.VERIFICANDO.getValue());
+        assertThat(p.getEstado()).isEqualTo(EstadoEnum.SIMULADO.getValue());
     }
 
     @Test
-    void pendienteToVerificando_esIdempotente_yaEnVerificandoPasa() {
+    void pendienteToSimulado_esIdempotente_yaEnSimuladoPasa() {
         // Si una segunda llamada llega antes que la primera commit, este caso
         // permite que el reintento no falle.
-        ProcesoDistribucion p = procesoEnEstado(EstadoEnum.VERIFICANDO);
+        ProcesoDistribucion p = procesoEnEstado(EstadoEnum.SIMULADO);
 
-        assertThatCode(() -> ProcesoEstadoService.PendienteToVerificando("p-1", p))
+        assertThatCode(() -> ProcesoEstadoService.PendienteToSimulado("p-1", p))
                 .doesNotThrowAnyException();
-        assertThat(p.getEstado()).isEqualTo(EstadoEnum.VERIFICANDO.getValue());
+        assertThat(p.getEstado()).isEqualTo(EstadoEnum.SIMULADO.getValue());
     }
 
     @Test
-    void pendienteToVerificando_lanzaSiYaEstaCompletado() {
+    void pendienteToSimulado_lanzaSiYaEstaCompletado() {
         ProcesoDistribucion p = procesoEnEstado(EstadoEnum.COMPLETADO);
 
-        assertThatThrownBy(() -> ProcesoEstadoService.PendienteToVerificando("p-1", p))
+        assertThatThrownBy(() -> ProcesoEstadoService.PendienteToSimulado("p-1", p))
                 .isInstanceOf(UnprocessableEntityException.class)
                 .hasMessageContaining("'pendiente'");
     }
 
     @Test
-    void verificandoToCompletado_verificandoSeMueveACompletado() {
-        ProcesoDistribucion p = procesoEnEstado(EstadoEnum.VERIFICANDO);
+    void simuladoToCompletado_simuladoSeMueveACompletado() {
+        ProcesoDistribucion p = procesoEnEstado(EstadoEnum.SIMULADO);
 
-        ProcesoEstadoService.VerificandoToCompletado("p-1", p);
+        ProcesoEstadoService.SimuladoToCompletado("p-1", p);
 
         assertThat(p.getEstado()).isEqualTo(EstadoEnum.COMPLETADO.getValue());
     }
 
     @Test
-    void verificandoToCompletado_lanzaSiEstaPendiente() {
+    void simuladoToCompletado_lanzaSiEstaPendiente() {
         ProcesoDistribucion p = procesoEnEstado(EstadoEnum.PENDIENTE);
 
-        assertThatThrownBy(() -> ProcesoEstadoService.VerificandoToCompletado("p-1", p))
+        assertThatThrownBy(() -> ProcesoEstadoService.SimuladoToCompletado("p-1", p))
                 .isInstanceOf(UnprocessableEntityException.class)
-                .hasMessageContaining("'verificando'");
+                .hasMessageContaining("'simulado'");
     }
 
     @Test
-    void verificandoToCompletado_lanzaSiYaEstaCompletado() {
+    void simuladoToCompletado_lanzaSiYaEstaCompletado() {
         // No es idempotente — un re-intento sobre completado falla.
         ProcesoDistribucion p = procesoEnEstado(EstadoEnum.COMPLETADO);
 
-        assertThatThrownBy(() -> ProcesoEstadoService.VerificandoToCompletado("p-1", p))
+        assertThatThrownBy(() -> ProcesoEstadoService.SimuladoToCompletado("p-1", p))
                 .isInstanceOf(UnprocessableEntityException.class);
     }
 
@@ -81,7 +81,7 @@ class ProcesoEstadoServiceTest {
     void mensajeDeError_incluyeProcesoIdYEstadoActual() {
         ProcesoDistribucion p = procesoEnEstado(EstadoEnum.COMPLETADO);
 
-        assertThatThrownBy(() -> ProcesoEstadoService.PendienteToVerificando("proceso-XYZ", p))
+        assertThatThrownBy(() -> ProcesoEstadoService.PendienteToSimulado("proceso-XYZ", p))
                 .hasMessageContaining("pendiente");
     }
 

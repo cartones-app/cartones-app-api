@@ -9,7 +9,7 @@ import lombok.Getter;
 public enum EstadoEnum {
 
     PENDIENTE("pendiente"),
-    VERIFICANDO("verificando"),
+    SIMULADO("simulado"),
     COMPLETADO("completado");
 
     @JsonValue

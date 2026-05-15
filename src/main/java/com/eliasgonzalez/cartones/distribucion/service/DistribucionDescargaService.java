@@ -31,7 +31,7 @@ public class DistribucionDescargaService {
      * <p>
      * Dos caminos:
      * <ol>
-     * <li><b>Primer download tras simular</b> (estado=VERIFICANDO):
+     * <li><b>Primer download tras simular</b> (estado=SIMULADO):
      * genera los PDFs leyendo del SimulacionCache, los persiste en la fila
      * del proceso y transiciona a COMPLETADO.</li>
      * <li><b>Re-download</b> (estado=COMPLETADO con bytes ya persistidos):
@@ -59,7 +59,7 @@ public class DistribucionDescargaService {
                 saveInMemoryTemp.getFechaSorteoSenete(),
                 saveInMemoryTemp.getFechaSorteoTelebingo());
 
-        ProcesoEstadoService.VerificandoToCompletado(procesoId, proceso);
+        ProcesoEstadoService.SimuladoToCompletado(procesoId, proceso);
         procesoDistribucionRepo.save(proceso);
 
         return zip;

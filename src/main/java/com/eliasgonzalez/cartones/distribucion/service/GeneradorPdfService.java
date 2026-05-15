@@ -50,7 +50,7 @@ public class GeneradorPdfService implements IGeneradorPdfService {
         try {
             Map<String, byte[]> pdfsGenerados = generarPdfs(config, fechaSorteoSenete, fechaSorteoTelebingo, procesoIdRecibido);
 
-            if (!EstadoEnum.VERIFICANDO.getValue().equals(proceso.getEstado())) {
+            if (!EstadoEnum.SIMULADO.getValue().equals(proceso.getEstado())) {
                 throw new UnprocessableEntityException(
                     "El estado del proceso no es válido para descarga.",
                     List.of("Estado: " + proceso.getEstado())
