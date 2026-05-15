@@ -80,8 +80,7 @@ public class DistribucionController {
      * vector de inyección de header si el contrato cambia.
      */
     static String sanitizarFilename(String raw) {
-        if (raw == null)
-            return "x";
+        if (raw == null) return "x";
         return raw.replaceAll("[^a-zA-Z0-9_-]", "_");
     }
 }

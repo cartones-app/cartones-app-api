@@ -31,65 +31,90 @@ import com.eliasgonzalez.cartones.common.flags.domain.enums.FlagValueType;
 @Component
 public class FlagRegistry {
 
-        // Constantes públicas para que los call sites no escriban strings sueltas.
-        public static final String FLAG_EXCEL_EXPOSE_ERROR_DETAILS = "excel.expose-error-details";
+    // Constantes públicas para que los call sites no escriban strings sueltas.
+    public static final String FLAG_EXCEL_EXPOSE_ERROR_DETAILS = "excel.expose-error-details";
 
-        // Gating de páginas del frontend.
-        public static final String FLAG_PAGE_UPLOAD = "page.upload.enabled";
-        public static final String FLAG_PAGE_MIS_DISTRIBUCIONES = "page.mis-distribuciones.enabled";
-        public static final String FLAG_PAGE_CONFIGURACION = "page.configuracion.enabled";
-        public static final String FLAG_PAGE_RUTA = "page.ruta.enabled";
+    // Gating de páginas del frontend.
+    public static final String FLAG_PAGE_UPLOAD = "page.upload.enabled";
+    public static final String FLAG_PAGE_MIS_DISTRIBUCIONES = "page.mis-distribuciones.enabled";
+    public static final String FLAG_PAGE_CONFIGURACION = "page.configuracion.enabled";
+    public static final String FLAG_PAGE_RUTA = "page.ruta.enabled";
 
-        private final Map<String, FlagDefinition> defs;
+    private final Map<String, FlagDefinition> defs;
 
-        public FlagRegistry() {
-                Map<String, FlagDefinition> m = new LinkedHashMap<>();
-                register(m, new FlagDefinition(FLAG_EXCEL_EXPOSE_ERROR_DETAILS, FlagValueType.BOOLEAN, "true",
-                                "Si true, las respuestas 422 de procesamiento de Excel incluyen el detalle "
-                                                + "de errores de validación. Si false, solo mensaje genérico.",
-                                false));
+    public FlagRegistry() {
+        Map<String, FlagDefinition> m = new LinkedHashMap<>();
+        register(
+                m,
+                new FlagDefinition(
+                        FLAG_EXCEL_EXPOSE_ERROR_DETAILS,
+                        FlagValueType.BOOLEAN,
+                        "true",
+                        "Si true, las respuestas 422 de procesamiento de Excel incluyen el detalle "
+                                + "de errores de validación. Si false, solo mensaje genérico.",
+                        false));
 
-                register(m, new FlagDefinition(FLAG_PAGE_UPLOAD, FlagValueType.BOOLEAN, "true",
-                                "Página /upload (Nueva distribución). En false el sidebar la oculta y "
-                                                + "el acceso directo muestra cartel de página deshabilitada.",
-                                true));
-                register(m, new FlagDefinition(FLAG_PAGE_MIS_DISTRIBUCIONES, FlagValueType.BOOLEAN, "true",
-                                "Página /mis-distribuciones. En false el sidebar la oculta y "
-                                                + "el acceso directo muestra cartel de página deshabilitada.",
-                                true));
-                register(m, new FlagDefinition(FLAG_PAGE_CONFIGURACION, FlagValueType.BOOLEAN, "true",
-                                "Página /configuracion (settings del simulador). En false el sidebar la oculta y "
-                                                + "el acceso directo muestra cartel de página deshabilitada.",
-                                true));
-                register(m, new FlagDefinition(FLAG_PAGE_RUTA, FlagValueType.BOOLEAN, "true",
-                                "Página /ruta (Recorrido de ruta). En false el sidebar la oculta y "
-                                                + "el acceso directo muestra cartel de página deshabilitada.",
-                                true));
+        register(
+                m,
+                new FlagDefinition(
+                        FLAG_PAGE_UPLOAD,
+                        FlagValueType.BOOLEAN,
+                        "true",
+                        "Página /upload (Nueva distribución). En false el sidebar la oculta y "
+                                + "el acceso directo muestra cartel de página deshabilitada.",
+                        true));
+        register(
+                m,
+                new FlagDefinition(
+                        FLAG_PAGE_MIS_DISTRIBUCIONES,
+                        FlagValueType.BOOLEAN,
+                        "true",
+                        "Página /mis-distribuciones. En false el sidebar la oculta y "
+                                + "el acceso directo muestra cartel de página deshabilitada.",
+                        true));
+        register(
+                m,
+                new FlagDefinition(
+                        FLAG_PAGE_CONFIGURACION,
+                        FlagValueType.BOOLEAN,
+                        "true",
+                        "Página /configuracion (settings del simulador). En false el sidebar la oculta y "
+                                + "el acceso directo muestra cartel de página deshabilitada.",
+                        true));
+        register(
+                m,
+                new FlagDefinition(
+                        FLAG_PAGE_RUTA,
+                        FlagValueType.BOOLEAN,
+                        "true",
+                        "Página /ruta (Recorrido de ruta). En false el sidebar la oculta y "
+                                + "el acceso directo muestra cartel de página deshabilitada.",
+                        true));
 
-                this.defs = Map.copyOf(m);
+        this.defs = Map.copyOf(m);
+    }
+
+    private static void register(Map<String, FlagDefinition> m, FlagDefinition def) {
+        if (def.defaultValue() == null || def.defaultValue().isBlank()) {
+            throw new IllegalStateException(
+                    "FlagDefinition '" + def.key() + "' tiene defaultValue null/blank — debe ser explícito");
         }
+        m.put(def.key(), def);
+    }
 
-        private static void register(Map<String, FlagDefinition> m, FlagDefinition def) {
-                if (def.defaultValue() == null || def.defaultValue().isBlank()) {
-                        throw new IllegalStateException("FlagDefinition '" + def.key()
-                                        + "' tiene defaultValue null/blank — debe ser explícito");
-                }
-                m.put(def.key(), def);
-        }
+    public List<FlagDefinition> all() {
+        return List.copyOf(defs.values());
+    }
 
-        public List<FlagDefinition> all() {
-                return List.copyOf(defs.values());
-        }
+    public List<FlagDefinition> publicFlags() {
+        return defs.values().stream().filter(FlagDefinition::publicRead).toList();
+    }
 
-        public List<FlagDefinition> publicFlags() {
-                return defs.values().stream().filter(FlagDefinition::publicRead).toList();
-        }
+    public Optional<FlagDefinition> find(String key) {
+        return Optional.ofNullable(defs.get(key));
+    }
 
-        public Optional<FlagDefinition> find(String key) {
-                return Optional.ofNullable(defs.get(key));
-        }
-
-        public boolean isRegistered(String key) {
-                return defs.containsKey(key);
-        }
+    public boolean isRegistered(String key) {
+        return defs.containsKey(key);
+    }
 }
