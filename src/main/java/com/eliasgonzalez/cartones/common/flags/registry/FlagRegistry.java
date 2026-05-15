@@ -40,6 +40,10 @@ public class FlagRegistry {
         public static final String FLAG_PAGE_CONFIGURACION = "page.configuracion.enabled";
         public static final String FLAG_PAGE_RUTA = "page.ruta.enabled";
 
+        // Rollout del flujo de generación de PDF en cliente. Fallback al endpoint
+        // server-side viejo cuando esté en false.
+        public static final String FLAG_PDF_CLIENT_ENABLED = "pdf.client.enabled";
+
         private final Map<String, FlagDefinition> defs;
 
         public FlagRegistry() {
@@ -64,6 +68,11 @@ public class FlagRegistry {
                 register(m, new FlagDefinition(FLAG_PAGE_RUTA, FlagValueType.BOOLEAN, "true",
                                 "Página /ruta (Recorrido de ruta). En false el sidebar la oculta y "
                                                 + "el acceso directo muestra cartel de página deshabilitada.",
+                                true));
+
+                register(m, new FlagDefinition(FLAG_PDF_CLIENT_ENABLED, FlagValueType.BOOLEAN, "true",
+                                "Habilita la generación de PDFs en el cliente con pdfme. "
+                                                + "Si false, el cliente cae al endpoint server-side viejo /pdfs.",
                                 true));
 
                 this.defs = Map.copyOf(m);
