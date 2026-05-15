@@ -54,3 +54,34 @@ flags:
       'legacy'. Cuando se implemente un alternativo ('nuevo'), basta con
       reemplazar este flag por una regla multivariant para hacer A/B test
       sticky por procesoId.
+
+  # ============================================================================
+  # Gating de páginas del frontend — controlado desde /admin/feature-flags.
+  # Cuando un page.X.enabled es false, el sidebar oculta el item y el acceso
+  # directo a la URL muestra un cartel de "Página deshabilitada".
+  # ============================================================================
+  page.upload.enabled:
+    type: boolean
+    value: true
+    enabled: true
+    description: Habilita la página /upload (Nueva distribución).
+
+  page.mis-distribuciones.enabled:
+    type: boolean
+    value: true
+    enabled: true
+    description: Habilita la página /mis-distribuciones.
+
+  page.configuracion.enabled:
+    type: boolean
+    value: true
+    enabled: true
+    description: Habilita la página /configuracion.
+
+  page.ruta.enabled:
+    type: boolean
+    value: true
+    enabled: true
+    description: >
+      Habilita la página /ruta. Independiente de ruta.enabled (que es el
+      kill-switch del backend) — esto solo afecta la UI.
