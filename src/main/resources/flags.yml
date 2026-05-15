@@ -9,9 +9,13 @@
 #
 # Para sobreescribir valores en runtime sin rebuild, montar un volumen con
 # un flags.yml externo y apuntar openflags.file.path en application-*.yml.
+#
+# Alternativa runtime (preferida): el admin puede pisar cualquier flag desde
+# /api/admin/feature-flags (solo rol ADMIN). El override vive en la tabla
+# flag_override y tiene prioridad sobre este YAML. El default acá sigue
+# siendo el fallback cuando se borra el override.
 
 flags:
-
   # ============================================================================
   # Excel processing — exposición de detalles de error
   # ============================================================================

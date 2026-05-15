@@ -12,42 +12,43 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 import com.eliasgonzalez.cartones.common.exception.ErrorResponse;
+import com.eliasgonzalez.cartones.common.flags.FeatureFlagsService;
+import com.eliasgonzalez.cartones.common.flags.registry.FlagRegistry;
 import com.eliasgonzalez.cartones.common.logging.LogSanitizer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import io.github.eliasss3990.openflags.core.OpenFlagsClient;
 import lombok.extern.slf4j.Slf4j;
 
 /**
  * Kill switch del módulo ruta — controlado por el flag openflags
  * {@code ruta.enabled} (default {@code true}).
  *
- * <p>Cuando el flag está en {@code false}, los endpoints {@code /api/ruta/**}
+ * <p>
+ * Cuando el flag está en {@code false}, los endpoints {@code /api/ruta/**}
  * y {@code /api/admin/ruta/**} devuelven {@code 503 Service Unavailable} con
  * un cuerpo {@link ErrorResponse} consistente con el resto de las respuestas
  * de error del backend. Útil para desactivar temporalmente el módulo sin
  * redeploy si se detecta un bug crítico en runtime.
  *
- * <p><b>Orden respecto a Spring Security</b>: los {@code HandlerInterceptor}
+ * <p>
+ * <b>Orden respecto a Spring Security</b>: los {@code HandlerInterceptor}
  * MVC corren <i>después</i> de la cadena de filtros de Spring Security. Un
  * request sin JWT válido nunca llega acá — lo rechaza el resource server con
  * 401/403 antes. Por eso este interceptor no necesita reimplementar checks de
  * autenticación; solo decide habilitar/deshabilitar el módulo para usuarios
  * que ya pasaron auth.
  *
- * <p>El interceptor se registra en {@link RutaWebConfig}.
+ * <p>
+ * El interceptor se registra en {@link RutaWebConfig}.
  */
 @Component
 @Slf4j
 public class RutaKillSwitchInterceptor implements HandlerInterceptor {
 
-    /** Flag key. Default {@code true}: módulo habilitado salvo opt-out explícito. */
-    static final String FLAG_RUTA_ENABLED = "ruta.enabled";
-
-    private final OpenFlagsClient flags;
+    private final FeatureFlagsService flags;
     private final ObjectMapper objectMapper;
 
-    public RutaKillSwitchInterceptor(OpenFlagsClient flags, ObjectMapper objectMapper) {
+    public RutaKillSwitchInterceptor(FeatureFlagsService flags, ObjectMapper objectMapper) {
         this.flags = flags;
         this.objectMapper = objectMapper;
     }
@@ -55,13 +56,13 @@ public class RutaKillSwitchInterceptor implements HandlerInterceptor {
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler)
             throws Exception {
-        boolean enabled = flags.getBooleanValue(FLAG_RUTA_ENABLED, true);
+        boolean enabled = flags.getBoolean(FlagRegistry.FLAG_RUTA_ENABLED, true);
         if (enabled) {
             return true;
         }
         log.warn(
                 "Módulo ruta deshabilitado por flag '{}', rechazando {} {}",
-                FLAG_RUTA_ENABLED,
+                FlagRegistry.FLAG_RUTA_ENABLED,
                 LogSanitizer.safe(request.getMethod()),
                 LogSanitizer.safe(request.getRequestURI()));
 
