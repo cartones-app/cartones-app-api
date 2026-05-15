@@ -10,7 +10,10 @@ public interface IVendedorService {
 
     List<VendedorResponseDTO> listarVendedoresValidos(String procesoIdRecibido);
 
-    CargaVendedoresResponseDTO procesarExcel(MultipartFile file, String procesoIdCreado);
-
-    String iniciarProceso();
+    /**
+     * Crea el {@code ProcesoDistribucion} y procesa el Excel en la misma
+     * transacción. Si el Excel falla validación, rollback completo —
+     * no quedan procesos huérfanos en estado PENDIENTE.
+     */
+    CargaVendedoresResponseDTO cargarDesdeExcel(MultipartFile file);
 }
