@@ -32,9 +32,7 @@ import com.eliasgonzalez.cartones.common.flags.domain.enums.FlagValueType;
 public class FlagRegistry {
 
         // Constantes públicas para que los call sites no escriban strings sueltas.
-        public static final String FLAG_RUTA_ENABLED = "ruta.enabled";
         public static final String FLAG_EXCEL_EXPOSE_ERROR_DETAILS = "excel.expose-error-details";
-        public static final String FLAG_SIMULACION_ALGORITMO = "simulacion.algoritmo";
 
         // Gating de páginas del frontend.
         public static final String FLAG_PAGE_UPLOAD = "page.upload.enabled";
@@ -46,16 +44,10 @@ public class FlagRegistry {
 
         public FlagRegistry() {
                 Map<String, FlagDefinition> m = new LinkedHashMap<>();
-                register(m, new FlagDefinition(FLAG_RUTA_ENABLED, FlagValueType.BOOLEAN, "true",
-                                "Habilita el módulo ruta (/api/ruta/** y /api/admin/ruta/**). "
-                                                + "En false los endpoints devuelven 503.",
-                                false));
                 register(m, new FlagDefinition(FLAG_EXCEL_EXPOSE_ERROR_DETAILS, FlagValueType.BOOLEAN, "true",
                                 "Si true, las respuestas 422 de procesamiento de Excel incluyen el detalle "
                                                 + "de errores de validación. Si false, solo mensaje genérico.",
                                 false));
-                register(m, new FlagDefinition(FLAG_SIMULACION_ALGORITMO, FlagValueType.STRING, "legacy",
-                                "Algoritmo de distribución de cartones. Hoy solo existe 'legacy'.", false));
 
                 register(m, new FlagDefinition(FLAG_PAGE_UPLOAD, FlagValueType.BOOLEAN, "true",
                                 "Página /upload (Nueva distribución). En false el sidebar la oculta y "
@@ -71,8 +63,7 @@ public class FlagRegistry {
                                 true));
                 register(m, new FlagDefinition(FLAG_PAGE_RUTA, FlagValueType.BOOLEAN, "true",
                                 "Página /ruta (Recorrido de ruta). En false el sidebar la oculta y "
-                                                + "el acceso directo muestra cartel de página deshabilitada. "
-                                                + "Independiente de 'ruta.enabled' que es el kill-switch del backend.",
+                                                + "el acceso directo muestra cartel de página deshabilitada.",
                                 true));
 
                 this.defs = Map.copyOf(m);
