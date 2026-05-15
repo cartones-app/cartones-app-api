@@ -187,19 +187,6 @@ public class GlobalExceptionHandler {
                 return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
         }
 
-        @ExceptionHandler(GoneException.class)
-        public ResponseEntity<ErrorResponse> handleGoneException(
-                        GoneException ex, HttpServletRequest request) {
-                log.warn(
-                                "Recurso ya no disponible en {}: {}",
-                                LogSanitizer.safe(request.getRequestURI()),
-                                LogSanitizer.safe(ex.getMessage()));
-                ErrorResponse response = buildErrorResponse(
-                                HttpStatus.GONE, "Recurso ya no disponible", ex.getMessage(), ex.getErrorDetails(),
-                                request);
-                return new ResponseEntity<>(response, HttpStatus.GONE);
-        }
-
         @ExceptionHandler(MethodArgumentNotValidException.class)
         public ResponseEntity<ErrorResponse> handleMethodArgumentNotValidException(
                         MethodArgumentNotValidException ex, HttpServletRequest request) {
