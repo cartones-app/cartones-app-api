@@ -64,6 +64,13 @@ services:
       # del JWK set. issuer-uri queda como `http://localhost:8080/...` porque
       # eso es lo que dice el claim `iss` del JWT (Spring lo valida por string).
       - keycloak-proxy
+      # Network del stack nginx-proxy en el VPS prod. El frontend (en la misma
+      # network) resuelve `backend:9001` por DNS interno docker para sus
+      # rewrites de /api-proxy/* (ver next.config.ts). En dev local NO existe
+      # esta network — el override docker-compose.local.yml la redefine como
+      # no-externa para no romper el `up` (queda como red vacía sin uso real,
+      # porque en dev el frontend usa network_mode: host).
+      - proxy
     secrets:
       - source: db_user
         target: spring.datasource.username
@@ -88,3 +95,8 @@ networks:
   keycloak-proxy:
     external: true
     name: infra_keycloak_proxy_local
+  # Network externa creada por el stack nginx-proxy en el VPS prod (compartida
+  # con el frontend). En dev local NO existe — el override docker-compose.local.yml
+  # la redefine como no-externa.
+  proxy:
+    external: true

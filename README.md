@@ -92,8 +92,12 @@ cp secrets_store/db_password.txt.example secrets_store/db_password.txt
 # o (manual)
 cd ../infra-keycloak && docker compose -f docker-compose.yml -f docker-compose.local.yml up -d
 cd -                                 # volver al backend
-docker compose up -d --build
+docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
 ```
+
+> El override `docker-compose.local.yml` solo redefine la network `proxy` como
+> no-externa (es la del nginx-proxy del VPS prod). Sin él, el `up` falla porque
+> el base la declara externa.
 
 Esto levanta dos contenedores:
 
@@ -113,6 +117,13 @@ El backend depende de la network y DNS internos del stack `infra-keycloak` (loca
 
 Si el nombre de la network o el container cambian en `infra-keycloak`, hay que actualizarlo
 en `docker-compose.yml:networks.keycloak-proxy.name` y/o `.env`.
+
+En VPS prod el backend se une **también** a la network externa `proxy` del stack
+nginx-proxy. El frontend (que vive en esa misma red) resuelve `http://backend:9001`
+por DNS interno docker y forwardea ahí las llamadas vía rewrites de Next
+(`/api-proxy/*`). El browser nunca habla directo al backend. En dev local
+`proxy` no existe — el override `docker-compose.local.yml` la redefine como
+no-externa para no romper el `up`.
 
 **Ver logs:**
 
