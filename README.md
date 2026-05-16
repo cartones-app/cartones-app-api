@@ -77,7 +77,21 @@ cp secrets_store/db_password.txt.example secrets_store/db_password.txt
 
 **3. Levantar todos los servicios:**
 
+> [!IMPORTANT]
+> El backend necesita la red docker `infra_keycloak_proxy_local` (creada por
+> el stack [`infra-keycloak`](https://github.com/cartones-app/infra-keycloak))
+> para resolver `keycloak:8080` por DNS interno. `docker compose up` directo
+> falla si la red no existe.
+>
+> Usá `./scripts/dev-up.sh`: detecta si la red no existe, levanta
+> `infra-keycloak` automáticamente desde `INFRA_KEYCLOAK_PATH` (configurable
+> en `.env`, default `../infra-keycloak`), y después levanta el backend.
+
 ```bash
+./scripts/dev-up.sh                  # recomendado: auto-orquesta infra-keycloak si hace falta
+# o (manual)
+cd ../infra-keycloak && docker compose -f docker-compose.yml -f docker-compose.local.yml up -d
+cd -                                 # volver al backend
 docker compose up -d --build
 ```
 
@@ -86,10 +100,19 @@ Esto levanta dos contenedores:
 - `postgres_cartones_db` — PostgreSQL en el puerto `PORT_DB`
 - `cartones_backend` — Spring Boot en el puerto `PORT_BACKEND`
 
-**Keycloak no se levanta acá** — vive en el repo aparte
-[`cartones-app/infra-keycloak`](https://github.com/cartones-app/infra-keycloak).
-Cloná ese repo y levantalo (`docker compose -f docker-compose.yml -f docker-compose.local.yml up -d`)
-antes que el backend, o el `/api/**` va a fallar a la primera request validando el JWT.
+#### Dependencia inter-repo
+
+El backend depende de la network y DNS internos del stack `infra-keycloak` (local dev):
+
+| Lo que expone `infra-keycloak` | Lo que consume `backend-AppWeb` |
+|---|---|
+| Network externa `infra_keycloak_proxy_local` | Se une como `keycloak-proxy` en `docker-compose.yml` |
+| Container DNS: `keycloak` | `KEYCLOAK_JWK_SET_URI=http://keycloak:8080/...` |
+| Puerto interno: `8080` | idem |
+| Claim `iss` del JWT: `http://localhost:8080/realms/cartones` | `KEYCLOAK_ISSUER_URI=http://localhost:8080/realms/cartones` (string match) |
+
+Si el nombre de la network o el container cambian en `infra-keycloak`, hay que actualizarlo
+en `docker-compose.yml:networks.keycloak-proxy.name` y/o `.env`.
 
 **Ver logs:**
 
@@ -166,7 +189,7 @@ curl -H "Authorization: Bearer <TOKEN>" http://localhost:9001/api/vendedores/<pr
 | `PORT_DB` | `5432` | Puerto PostgreSQL expuesto en host |
 | `PORT_BACKEND` | `9001` | Puerto del backend expuesto en host |
 | `KEYCLOAK_ISSUER_URI` | `http://localhost:8080/realms/cartones` | URL del realm (claim `iss` del JWT). Keycloak vive en repo `cartones-app/infra-keycloak`. |
-| `KEYCLOAK_JWK_SET_URI` | `http://localhost:8080/realms/cartones/protocol/openid-connect/certs` | Endpoint JWKS para validar firmas |
+| `KEYCLOAK_JWK_SET_URI` | `http://keycloak:8080/realms/cartones/protocol/openid-connect/certs` | Endpoint JWKS para validar firmas. En dev usa el DNS interno del docker network compartido con `infra-keycloak` (ver "Dependencia inter-repo"). |
 | `APP_UPLOADS_RATE_LIMIT_RPM` | `10` | Rate limit por usuario en endpoints de upload |
 
 ### Railway (staging)

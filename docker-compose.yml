@@ -56,6 +56,14 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    networks:
+      # Network del proyecto (db + backend, default).
+      - default
+      # Network donde vive el container de Keycloak (definida en infra-keycloak).
+      # El backend usa el DNS interno `keycloak:8080` para bajar las public keys
+      # del JWK set. issuer-uri queda como `http://localhost:8080/...` porque
+      # eso es lo que dice el claim `iss` del JWT (Spring lo valida por string).
+      - keycloak-proxy
     secrets:
       - source: db_user
         target: spring.datasource.username
@@ -72,3 +80,11 @@ secrets:
     file: ./secrets_store/db_user.txt
   db_password:
     file: ./secrets_store/db_password.txt
+
+networks:
+  default:
+  # Network externa creada por el stack de infra-keycloak (override local).
+  # El name fijo evita depender de cómo Compose prefije la red según el directorio.
+  keycloak-proxy:
+    external: true
+    name: infra_keycloak_proxy_local
