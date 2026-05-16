@@ -1,6 +1,8 @@
 package com.eliasgonzalez.cartones.distribucion.service;
 
 import com.eliasgonzalez.cartones.distribucion.controller.dto.VendedorSimuladoDTO;
+import com.eliasgonzalez.cartones.distribucion.preferencias.service.PreferenciasDistribuidorService;
+import com.eliasgonzalez.cartones.distribucion.preferencias.service.PreferenciasDistribuidorService.PreferenciasResueltas;
 import com.eliasgonzalez.cartones.distribucion.service.dto.EtiquetaDTO;
 import com.eliasgonzalez.cartones.distribucion.service.dto.ResumenDTO;
 import com.eliasgonzalez.cartones.distribucion.domain.ProcesoDistribucion;
@@ -34,6 +36,7 @@ public class GeneradorPdfService implements IGeneradorPdfService {
     private final EtiquetasPdfService pdfEtiquetasService;
     private final ResumenPdfService pdfResumenService;
     private final ProcesoDistribucionVendedorRepository procesoVendedorRepo;
+    private final PreferenciasDistribuidorService preferenciasService;
 
     private static final String ETIQUETAS = "etiquetas";
     private static final String RESUMEN = "resumen";
@@ -48,7 +51,13 @@ public class GeneradorPdfService implements IGeneradorPdfService {
             LocalDate fechaSorteoTelebingo
     ) {
         try {
-            Map<String, byte[]> pdfsGenerados = generarPdfs(config, fechaSorteoSenete, fechaSorteoTelebingo, procesoIdRecibido);
+            // Preferencias del distribuidor que creó el proceso. Si no hay row
+            // en preferencias_distribuidor, caen defaults equivalentes al
+            // comportamiento previo (3 por hoja, orden secuencial).
+            PreferenciasResueltas prefs = preferenciasService.obtenerOPorDefecto(proceso.getCreatedBy());
+
+            Map<String, byte[]> pdfsGenerados = generarPdfs(
+                    config, fechaSorteoSenete, fechaSorteoTelebingo, procesoIdRecibido, prefs);
 
             if (!EstadoEnum.SIMULADO.getValue().equals(proceso.getEstado())) {
                 throw new UnprocessableEntityException(
@@ -77,12 +86,28 @@ public class GeneradorPdfService implements IGeneradorPdfService {
 
     /**
      * Genera los PDFs de etiquetas y resumen de manera concurrente usando Virtual Threads.
+     * Sobrecarga sin {@code prefs} aplica defaults — útil para callers legacy y tests.
      */
     public Map<String, byte[]> generarPdfs(
             List<VendedorSimuladoDTO> config,
             LocalDate fechaSorteoSenete,
             LocalDate fechaSorteoTelebingo,
             String procesoIdRecibido
+    ) {
+        return generarPdfs(config, fechaSorteoSenete, fechaSorteoTelebingo, procesoIdRecibido,
+                PreferenciasResueltas.defaults());
+    }
+
+    /**
+     * Variante que respeta las preferencias del distribuidor para el PDF de etiquetas.
+     * El resumen no cambia: solo etiquetas tiene layout/orden configurable.
+     */
+    public Map<String, byte[]> generarPdfs(
+            List<VendedorSimuladoDTO> config,
+            LocalDate fechaSorteoSenete,
+            LocalDate fechaSorteoTelebingo,
+            String procesoIdRecibido,
+            PreferenciasResueltas prefs
     ) {
         log.info("Iniciando generación concurrente de PDFs para proceso: {}", procesoIdRecibido);
         long startTime = System.currentTimeMillis();
@@ -102,8 +127,11 @@ public class GeneradorPdfService implements IGeneradorPdfService {
         List<ResumenDTO> resumenMapeado = DistribucionMapper.toResumenDTOs(config, registrosMap);
 
         CompletableFuture<byte[]> futureEtiquetas = CompletableFuture.supplyAsync(() -> {
-            log.debug("Generando PDF de etiquetas en thread: {}", Thread.currentThread());
-            return pdfEtiquetasService.generarEtiquetas(etiquetasMapeado, fechaSorteoSenete, fechaSorteoTelebingo);
+            log.debug("Generando PDF de etiquetas en thread: {} (layout={}, orden={})",
+                    Thread.currentThread(), prefs.layout(), prefs.orden());
+            return pdfEtiquetasService.generarEtiquetas(
+                    etiquetasMapeado, fechaSorteoSenete, fechaSorteoTelebingo,
+                    prefs.layout(), prefs.orden());
         });
 
         CompletableFuture<byte[]> futureResumen = CompletableFuture.supplyAsync(() -> {
