@@ -5,13 +5,18 @@
 #   docker compose -f docker-compose.yml -f docker-compose.local.yml up -d
 # (o usar `scripts/dev-up.sh` que ya lo hace por nosotros).
 #
-# Único propósito: hacer que la network externa `proxy` (que en VPS prod es la
-# del stack nginx-proxy) sea no-externa en dev — sino el `up` falla con
-# "network proxy declared as external, but could not be found". En dev local
-# el frontend usa network_mode: host, así que esta red queda vacía y sin uso
-# real; pero el backend igual la tiene que tener para que el `networks:` del
-# service no rompa.
+# Propósitos:
+#  - Redefinir la network `proxy` (que en VPS prod es la del stack nginx-proxy)
+#    como no-externa, para que el `up` no falle con "network not found". En dev
+#    local nadie más vive en esa red, queda vacía.
+#  - Publicar el puerto del backend al host (en prod no se publica nada — el
+#    frontend y nginx-proxy lo alcanzan por DNS interno docker).
 # ============================================================================
+
+services:
+    backend:
+        ports:
+            - "${PORT_BACKEND}:9001"
 
 networks:
     proxy:

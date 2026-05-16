@@ -51,8 +51,10 @@ services:
       KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI}
       KEYCLOAK_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI}
 
-    ports:
-      - "${PORT_BACKEND}:9001"
+    # Sin `ports:` en el base: en VPS prod el backend NO publica nada al host
+    # — frontend y nginx-proxy lo alcanzan por DNS interno docker (`backend:9001`)
+    # y nadie de afuera del VPS debería poder conectar directo. El override
+    # docker-compose.local.yml lo expone para curl/admin en dev.
     depends_on:
       db:
         condition: service_healthy
