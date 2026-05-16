@@ -58,7 +58,7 @@ El perfil `local` deshabilita toda autenticación. Útil para probar endpoints r
 
 ---
 
-### Opción B — Con Docker Compose (PostgreSQL + Keycloak + Backend)
+### Opción B — Con Docker Compose (PostgreSQL + Backend)
 
 **1. Copiar y configurar variables de entorno:**
 
@@ -81,19 +81,20 @@ cp secrets_store/db_password.txt.example secrets_store/db_password.txt
 docker compose up -d --build
 ```
 
-Esto levanta tres contenedores:
+Esto levanta dos contenedores:
 
 - `postgres_cartones_db` — PostgreSQL en el puerto `PORT_DB`
-- `cartones_keycloak` — Keycloak en el puerto `PORT_KEYCLOAK` (default 8080)
 - `cartones_backend` — Spring Boot en el puerto `PORT_BACKEND`
 
-Keycloak importa automáticamente el realm `cartones` desde `keycloak/realm-cartones.json`.
+**Keycloak no se levanta acá** — vive en el repo aparte
+[`cartones-app/infra-keycloak`](https://github.com/cartones-app/infra-keycloak).
+Cloná ese repo y levantalo (`docker compose -f docker-compose.yml -f docker-compose.local.yml up -d`)
+antes que el backend, o el `/api/**` va a fallar a la primera request validando el JWT.
 
 **Ver logs:**
 
 ```bash
 docker compose logs -f backend
-docker compose logs -f keycloak
 ```
 
 **Detener:**
@@ -164,9 +165,8 @@ curl -H "Authorization: Bearer <TOKEN>" http://localhost:9001/api/vendedores/<pr
 | `POSTGRES_DB` | `cartones` | Nombre de la base de datos |
 | `PORT_DB` | `5432` | Puerto PostgreSQL expuesto en host |
 | `PORT_BACKEND` | `9001` | Puerto del backend expuesto en host |
-| `PORT_KEYCLOAK` | `8080` | Puerto de Keycloak expuesto en host |
-| `KEYCLOAK_ADMIN_USER` | `admin` | Usuario admin de Keycloak |
-| `KEYCLOAK_ADMIN_PASSWORD` | `*****` | Contraseña admin de Keycloak |
+| `KEYCLOAK_ISSUER_URI` | `http://localhost:8080/realms/cartones` | URL del realm (claim `iss` del JWT). Keycloak vive en repo `cartones-app/infra-keycloak`. |
+| `KEYCLOAK_JWK_SET_URI` | `http://localhost:8080/realms/cartones/protocol/openid-connect/certs` | Endpoint JWKS para validar firmas |
 | `APP_UPLOADS_RATE_LIMIT_RPM` | `10` | Rate limit por usuario en endpoints de upload |
 
 ### Railway (staging)
