@@ -7,18 +7,21 @@ import com.eliasgonzalez.cartones.distribucion.preferencias.repository.Preferenc
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
 import java.util.Optional;
 
 /**
  * Lectura y escritura de preferencias de impresión de etiquetas por
  * distribuidor.
  *
- * <p>Convención: el {@code username} es el {@code sub} del JWT de Keycloak —
- * mismo string que termina en {@code created_by} de las entidades auditables.
+ * <p>Convención: el {@code username} es el {@code preferred_username} del JWT
+ * de Keycloak — mismo string que termina en {@code created_by} de las
+ * entidades auditables (ver {@code SecurityConfig.jwtAuthenticationConverter}
+ * con {@code principalClaimName=preferred_username}).
  *
  * <p>Defaults: cuando no existe row en la tabla, las preferencias caen a
  * {@link PreferenciasResueltas#defaults()}. Eso preserva el comportamiento
@@ -58,10 +61,15 @@ public class PreferenciasDistribuidorService {
         return repo.findById(username);
     }
 
-    /** Lista todas las preferencias (UI admin). */
+    /**
+     * Lista paginada de preferencias (UI admin). Aunque hoy el set de
+     * distribuidores es chico, evitamos {@code findAll()} para no cargar
+     * toda la tabla en memoria y respetar la convención del resto del
+     * codebase de pasar {@link Pageable} en endpoints administrativos.
+     */
     @Transactional(readOnly = true)
-    public List<PreferenciasDistribuidor> listarTodas() {
-        return repo.findAll();
+    public Page<PreferenciasDistribuidor> listarTodas(Pageable pageable) {
+        return repo.findAll(pageable);
     }
 
     /**

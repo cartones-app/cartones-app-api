@@ -1,5 +1,6 @@
 package com.eliasgonzalez.cartones.distribucion.preferencias.controller;
 
+import com.eliasgonzalez.cartones.common.logging.LogSanitizer;
 import com.eliasgonzalez.cartones.distribucion.preferencias.controller.dto.ActualizarPreferenciasRequest;
 import com.eliasgonzalez.cartones.distribucion.preferencias.controller.dto.PreferenciasEtiquetasDTO;
 import com.eliasgonzalez.cartones.distribucion.preferencias.domain.PreferenciasDistribuidor;
@@ -42,7 +43,7 @@ public class MePreferenciasEtiquetasController {
     @GetMapping
     public ResponseEntity<PreferenciasEtiquetasDTO> obtenerMisPreferencias(@AuthenticationPrincipal Jwt jwt) {
         String username = jwt.getClaimAsString("preferred_username");
-        log.debug("GET /api/me/preferencias-etiquetas user={}", username);
+        log.debug("GET /api/me/preferencias-etiquetas user={}", LogSanitizer.safe(username));
         return ResponseEntity.ok(service.buscarPorUsername(username)
                 .map(PreferenciasEtiquetasDTO::fromEntity)
                 .orElseGet(() -> defaultDto(username)));
@@ -54,7 +55,7 @@ public class MePreferenciasEtiquetasController {
             @Valid @RequestBody ActualizarPreferenciasRequest body) {
         String username = jwt.getClaimAsString("preferred_username");
         log.debug("PUT /api/me/preferencias-etiquetas user={} layout={} orden={}",
-                username, body.layoutEtiqueta(), body.ordenEtiqueta());
+                LogSanitizer.safe(username), body.layoutEtiqueta(), body.ordenEtiqueta());
         PreferenciasDistribuidor saved = service.guardar(username, body.layoutEtiqueta(), body.ordenEtiqueta());
         return ResponseEntity.ok(PreferenciasEtiquetasDTO.fromEntity(saved));
     }

@@ -13,9 +13,7 @@ import com.lowagie.text.pdf.BaseFont;
 import com.lowagie.text.pdf.PdfContentByte;
 import com.lowagie.text.pdf.PdfWriter;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.io.ByteArrayOutputStream;
 import java.time.LocalDate;
@@ -42,15 +40,25 @@ import java.util.stream.Collectors;
  * cambian.
  */
 @Service
-@Transactional
-@RequiredArgsConstructor
 public class EtiquetasPdfService {
 
-    private static final float MARGEN_LATERAL = 20f;
-    private static final float ESPACIO_VERTICAL = 15f;
+    private static final float MARGEN = 20f;             // se aplica en los 4 bordes del A4
+    private static final float ESPACIO_VERTICAL = 15f;   // entre etiquetas en una hoja
 
-    private final List<EtiquetaLayoutRenderer> renderers;
+    private final Map<LayoutEtiqueta, EtiquetaLayoutRenderer> rendererPorLayout;
     private final EtiquetaOrderer orderer;
+
+    /**
+     * Spring inyecta TODOS los beans que implementan {@link EtiquetaLayoutRenderer}.
+     * Los indexamos por {@link LayoutEtiqueta} en startup — si dos renderers
+     * reportan el mismo layout, {@link Collectors#toUnmodifiableMap} lanza al
+     * arrancar el contexto (mejor que descubrirlo al primer PDF).
+     */
+    public EtiquetasPdfService(List<EtiquetaLayoutRenderer> renderers, EtiquetaOrderer orderer) {
+        this.orderer = orderer;
+        this.rendererPorLayout = renderers.stream()
+                .collect(Collectors.toUnmodifiableMap(EtiquetaLayoutRenderer::getLayout, r -> r));
+    }
 
     /** Backwards-compat: defaults a TRES_POR_HOJA + SECUENCIAL. */
     public byte[] generarEtiquetas(
@@ -88,8 +96,8 @@ public class EtiquetasPdfService {
             float width = PageSize.A4.getWidth();
             float height = PageSize.A4.getHeight();
             // Alto de cada etiqueta: (alto total - 2 márgenes - (slots-1) espacios) / slots
-            float altoEt = (height - 2 * MARGEN_LATERAL - (slotsPorHoja - 1) * ESPACIO_VERTICAL) / slotsPorHoja;
-            float anchoEt = width - 2 * MARGEN_LATERAL;
+            float altoEt = (height - 2 * MARGEN - (slotsPorHoja - 1) * ESPACIO_VERTICAL) / slotsPorHoja;
+            float anchoEt = width - 2 * MARGEN;
 
             BaseFont helv = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
             BaseFont bold = BaseFont.createFont(BaseFont.HELVETICA_BOLD, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
@@ -102,8 +110,8 @@ public class EtiquetasPdfService {
             for (int i = 0; i < ordenadas.size(); i++) {
                 int slot = i % slotsPorHoja;
                 // y del borde inferior de la etiqueta en este slot (iText: origen abajo-izq)
-                float y = height - MARGEN_LATERAL - (slot + 1) * altoEt - slot * ESPACIO_VERTICAL;
-                float x = MARGEN_LATERAL;
+                float y = height - MARGEN - (slot + 1) * altoEt - slot * ESPACIO_VERTICAL;
+                float x = MARGEN;
 
                 EtiquetaLayoutRenderer.ContextoEtiqueta ctx = new EtiquetaLayoutRenderer.ContextoEtiqueta(
                         ordenadas.get(i), txtFechaSenete, txtFechaTelebingo, fechasIguales, helv, bold);
@@ -129,9 +137,7 @@ public class EtiquetasPdfService {
 
     private EtiquetaLayoutRenderer resolverRenderer(LayoutEtiqueta layout) {
         LayoutEtiqueta efectivo = layout != null ? layout : LayoutEtiqueta.defaultValue();
-        Map<LayoutEtiqueta, EtiquetaLayoutRenderer> porLayout = renderers.stream()
-                .collect(Collectors.toMap(EtiquetaLayoutRenderer::getLayout, r -> r));
-        EtiquetaLayoutRenderer r = porLayout.get(efectivo);
+        EtiquetaLayoutRenderer r = rendererPorLayout.get(efectivo);
         if (r == null) {
             throw new IllegalStateException("No hay renderer registrado para layout " + efectivo);
         }

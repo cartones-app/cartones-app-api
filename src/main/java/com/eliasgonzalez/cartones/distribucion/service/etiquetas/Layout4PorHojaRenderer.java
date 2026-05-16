@@ -10,18 +10,24 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 
 /**
- * Layout compacto: 4 etiquetas por A4. Mismo contenido que
- * {@link Layout3PorHojaRenderer} pero con tipografía y espaciados reducidos
- * para entrar en ~3/4 del alto.
+ * Layout compacto: 4 etiquetas por A4. Comprime el diseño de 3-por-hoja para
+ * entrar en ~189pt de alto (vs 257pt del Layout3).
  *
- * <p>Ajustes vs 3-por-hoja:
+ * <p>Decisiones de espacio (de arriba a abajo, todo relativo a {@code yTop}):
  * <ul>
- *   <li>Cabecera comprimida: padding superior 14 (vs 20), interlineado 12 (vs 15).</li>
- *   <li>Número de vendedor: tamaño 20 (vs 24).</li>
- *   <li>Nombre del vendedor: tamaño 12 (vs 14), bajado a -65 (vs -80).</li>
- *   <li>Columnas SENETÉ/TELEBINGO arrancan en -95 (vs -120) y usan interlineado 10 (vs 12).</li>
- *   <li>Saldo: sube a y+50/y+38 (vs y+60/y+45) para no chocar con las columnas.</li>
+ *   <li>Cabecera (3 líneas) en {@code -14, -26, -38} — interlineado 12.</li>
+ *   <li>Divisoria en {@code -48}.</li>
+ *   <li>Nombre vendedor en {@code -62}.</li>
+ *   <li>Columnas SENETÉ / TELEBINGO arrancan en {@code -78} con interlineado
+ *       9pt y RESULTADOS sin un gap grande. Con N=4 rangos (típico) el bloque
+ *       termina ~y+34, dejando aire respecto al saldo abajo.</li>
+ *   <li>Saldo en una sola línea ({@code "SALDO  Gs. ..."}) en {@code y+12} —
+ *       más compacto que tener label + valor en líneas separadas.</li>
  * </ul>
+ *
+ * <p>Trade-off conocido: si N≥6, el bloque de columnas puede pisar el saldo.
+ * Mismo límite que el Layout3 (donde el problema aparece en N≥8) y se mitiga
+ * solo con la reducción de fuente automática para N>4.
  */
 @Component
 public class Layout4PorHojaRenderer implements EtiquetaLayoutRenderer {
@@ -49,13 +55,13 @@ public class Layout4PorHojaRenderer implements EtiquetaLayoutRenderer {
         cb.rectangle(x, y, ancho, alto);
         cb.stroke();
 
-        // Número vendedor (más chico, esquina sup derecha)
+        // Número vendedor (esquina sup derecha)
         cb.beginText();
         cb.setFontAndSize(bold, 20);
         cb.showTextAligned(Element.ALIGN_RIGHT, "#" + item.getNumeroVendedor(), x + ancho - 5, yTop - 20, 0);
         cb.endText();
 
-        // Cabecera izquierda comprimida
+        // Cabecera izquierda
         cb.beginText();
         cb.setFontAndSize(bold, 9);
         cb.setTextMatrix(x + 10, yTop - 14);
@@ -78,37 +84,36 @@ public class Layout4PorHojaRenderer implements EtiquetaLayoutRenderer {
         }
         cb.endText();
 
-        // Divisoria un poco más arriba
+        // Divisoria
         cb.moveTo(x, yTop - 48);
         cb.lineTo(x + ancho, yTop - 48);
         cb.stroke();
 
-        // Nombre vendedor
+        // Nombre vendedor (más arriba que Layout3 para reservar fondo al saldo)
         cb.beginText();
         cb.setFontAndSize(bold, 12);
         cb.showTextAligned(Element.ALIGN_CENTER,
                 item.getNombre() != null ? item.getNombre().toUpperCase() : "",
-                x + ancho / 2f, yTop - 65, 0);
+                x + ancho / 2f, yTop - 62, 0);
         cb.endText();
 
-        // Columnas (más pegadas verticalmente)
+        // Columnas SENETÉ + TELEBINGO comprimidas
         float xCentroSenete    = x + 80;
         float xCentroTelebingo = x + ancho - 80;
-        float yInicioColumnas  = yTop - 95;
+        float yInicioColumnas  = yTop - 78;
 
         dibujarColumna(cb, "SENETÉ",    item.getSeneteRangos(),    item.getSeneteCartones(),    item.getResultadoSenete(),
                 xCentroSenete, yInicioColumnas, helv, bold);
         dibujarColumna(cb, "TELEBINGO", item.getTelebingoRangos(), item.getTelebingoCartones(), item.getResultadoTelebingo(),
                 xCentroTelebingo, yInicioColumnas, helv, bold);
 
-        // Saldo
+        // Saldo en una sola línea, centrado, justo arriba del borde inferior.
+        // Combina label + valor para no gastar dos líneas.
         cb.beginText();
         cb.setFontAndSize(bold, 11);
-        cb.showTextAligned(Element.ALIGN_CENTER, "SALDO", x + ancho / 2f, y + 50, 0);
-        cb.setFontAndSize(helv, 10);
         cb.showTextAligned(Element.ALIGN_CENTER,
-                "Gs. " + (item.getSaldo() != null ? item.getSaldo() : "0"),
-                x + ancho / 2f, y + 38, 0);
+                "SALDO   Gs. " + (item.getSaldo() != null ? item.getSaldo() : "0"),
+                x + ancho / 2f, y + 12, 0);
         cb.endText();
     }
 
@@ -128,7 +133,7 @@ public class Layout4PorHojaRenderer implements EtiquetaLayoutRenderer {
 
         cb.setFontAndSize(fBold, 10);
         cb.showTextAligned(Element.ALIGN_CENTER, titulo, xCentro, curY, 0);
-        curY -= 12;
+        curY -= 11;
 
         cb.setFontAndSize(fNorm, 9);
         if (rangos != null && rangos.size() > 4) {
@@ -137,7 +142,7 @@ public class Layout4PorHojaRenderer implements EtiquetaLayoutRenderer {
         if (rangos != null) {
             for (String r : rangos) {
                 cb.showTextAligned(Element.ALIGN_CENTER, r, xCentro, curY, 0);
-                curY -= 10;
+                curY -= 9;
             }
         }
 
@@ -146,12 +151,12 @@ public class Layout4PorHojaRenderer implements EtiquetaLayoutRenderer {
                 "TOTAL ------------> (" + (total != null ? total : "0") + ")",
                 xCentro, curY, 0);
 
-        curY -= 20;
+        curY -= 14;
 
-        cb.setFontAndSize(fBold, 10);
+        cb.setFontAndSize(fBold, 9);
         cb.showTextAligned(Element.ALIGN_CENTER, "RESULTADOS", xCentro, curY, 0);
-        cb.setFontAndSize(fNorm, 10);
-        cb.showTextAligned(Element.ALIGN_CENTER, resultado != null ? resultado : "0", xCentro, curY - 13, 0);
+        cb.setFontAndSize(fNorm, 9);
+        cb.showTextAligned(Element.ALIGN_CENTER, resultado != null ? resultado : "0", xCentro, curY - 10, 0);
 
         cb.endText();
     }

@@ -31,14 +31,27 @@ import java.util.Optional;
  *       sesion_ruta_registro, exclusion_ruta, preferencias_distribuidor.</li>
  * </ul>
  *
- * <p>Edge case: si el nuevo username ya tiene row en
- * {@code preferencias_distribuidor} (colisión por reuse), NO se renombra esa
- * row para no violar PK; el resto sí se actualiza. La preferencia vieja
- * queda huérfana y el filtro la limpia en background.
+ * <p>Edge case de colisión: si el nuevo username YA tiene row en
+ * {@code preferencias_distribuidor} (otro user había usado ese nombre antes,
+ * o reuse de nombre), no se puede UPDATE de la PK. En ese caso se BORRA la
+ * row vieja — su contenido es inaccesible para el user (que ahora se identifica
+ * con el nombre nuevo) y dejarla huérfana acumularía estado inconsistente.
+ *
  *
  * <p>Concurrencia: el filtro tira siempre {@code REQUIRES_NEW} para aislar
  * la transacción del rename de la request principal; un error acá no debe
  * tumbar la request en curso.
+ *
+ * <p>Limitación conocida — JWTs concurrentes con username distinto: si dos
+ * requests del mismo {@code sub} llegan simultáneamente con un JWT viejo
+ * (preferred_username=A) y uno nuevo (B), la primera podría revertir el
+ * rename de la otra. Probabilidad muy baja (ventana de segundos entre
+ * refresh del JWT y propagación) y se autoresuelve en el siguiente request
+ * con el JWT nuevo. No vale agregar locking pesimista para esto.
+ *
+ * <p>Rename inverso (volver al nombre anterior): soportado naturalmente. Si
+ * un user pasa de A → B y luego B → A, el segundo rename detecta el cambio
+ * y propaga normalmente. {@code renameCount} se incrementa cada vez.
  */
 @Service
 @RequiredArgsConstructor
@@ -109,39 +122,47 @@ public class UserIdentityService {
     }
 
     private void propagarRename(String oldUsername, String newUsername) {
-        // 1. preferencias_distribuidor: la PK es username, hay que UPDATE
-        //    o, si ya existe row para newUsername, dejar la vieja huérfana
-        //    (la limpia el filter en background — TODO opcional).
-        long existeNueva = (Long) em.createNativeQuery(
+        final String NUEVO = "nuevo";
+        final String VIEJO = "viejo";
+
+        // 1. preferencias_distribuidor: la PK es username, requiere manejo
+        //    especial. Sin colisión: UPDATE in-place. Con colisión: DELETE
+        //    de la row vieja (inaccesible para el user nuevo).
+        Number existentes = (Number) em.createNativeQuery(
                         "SELECT COUNT(*) FROM preferencias_distribuidor WHERE username = :u")
                 .setParameter("u", newUsername)
                 .getSingleResult();
+        long existeNueva = existentes.longValue();
         if (existeNueva == 0) {
             int actualizadas = em.createNativeQuery(
                             "UPDATE preferencias_distribuidor SET username = :nuevo WHERE username = :viejo")
-                    .setParameter("nuevo", newUsername)
-                    .setParameter("viejo", oldUsername)
+                    .setParameter(NUEVO, newUsername)
+                    .setParameter(VIEJO, oldUsername)
                     .executeUpdate();
             if (actualizadas > 0) {
                 log.info("preferencias_distribuidor: renombrado username '{}' -> '{}' ({} row)",
                         oldUsername, newUsername, actualizadas);
             }
         } else {
-            log.warn("preferencias_distribuidor: ya existe row para '{}'. La row vieja de '{}' queda huérfana.",
-                    newUsername, oldUsername);
+            int borradas = em.createNativeQuery(
+                            "DELETE FROM preferencias_distribuidor WHERE username = :viejo")
+                    .setParameter(VIEJO, oldUsername)
+                    .executeUpdate();
+            log.warn("preferencias_distribuidor: ya existe row para '{}', borradas {} row(s) huérfana(s) de '{}'.",
+                    newUsername, borradas, oldUsername);
         }
 
         // 2. created_by / modified_by en todas las tablas auditables.
         for (String tabla : AUDIT_TABLES) {
             int updatedCreated = em.createNativeQuery(
                             "UPDATE " + tabla + " SET created_by = :nuevo WHERE created_by = :viejo")
-                    .setParameter("nuevo", newUsername)
-                    .setParameter("viejo", oldUsername)
+                    .setParameter(NUEVO, newUsername)
+                    .setParameter(VIEJO, oldUsername)
                     .executeUpdate();
             int updatedModified = em.createNativeQuery(
                             "UPDATE " + tabla + " SET modified_by = :nuevo WHERE modified_by = :viejo")
-                    .setParameter("nuevo", newUsername)
-                    .setParameter("viejo", oldUsername)
+                    .setParameter(NUEVO, newUsername)
+                    .setParameter(VIEJO, oldUsername)
                     .executeUpdate();
             if (updatedCreated + updatedModified > 0) {
                 log.info("{}: renombradas {} filas (created_by) + {} filas (modified_by)",

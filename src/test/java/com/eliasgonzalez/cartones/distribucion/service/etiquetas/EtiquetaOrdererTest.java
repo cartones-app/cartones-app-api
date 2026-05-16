@@ -100,7 +100,7 @@ class EtiquetaOrdererTest {
     }
 
     @Test
-    void listaVaciaOullDevuelveLoMismo() {
+    void listaVaciaONullDevuelveLoMismo() {
         assertThat(orderer.ordenar(List.of(), OrdenEtiqueta.INTERCALADO, 3)).isEmpty();
         assertThat(orderer.ordenar(null, OrdenEtiqueta.INTERCALADO, 3)).isNull();
     }

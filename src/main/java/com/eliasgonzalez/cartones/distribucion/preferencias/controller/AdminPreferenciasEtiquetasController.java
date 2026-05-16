@@ -10,6 +10,9 @@ import com.eliasgonzalez.cartones.distribucion.preferencias.service.Preferencias
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,7 +23,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 /**
  * Endpoints administrativos para preferencias de etiquetas. Permiten al admin
@@ -42,14 +44,17 @@ public class AdminPreferenciasEtiquetasController {
 
     private final PreferenciasDistribuidorService service;
 
-    /** Lista todas las filas presentes en la tabla. */
+    /**
+     * Lista paginada de las filas presentes en la tabla. Default: 50 filas
+     * ordenadas por username ASC (PK con índice automático — orden determinístico
+     * sin costo extra). El cliente puede pisarlo con ?sort=...&page=...&size=...
+     */
     @GetMapping
-    public ResponseEntity<List<PreferenciasEtiquetasDTO>> listar() {
-        log.debug("GET /api/admin/preferencias-etiquetas");
-        List<PreferenciasEtiquetasDTO> dtos = service.listarTodas().stream()
-                .map(PreferenciasEtiquetasDTO::fromEntity)
-                .toList();
-        return ResponseEntity.ok(dtos);
+    public ResponseEntity<Page<PreferenciasEtiquetasDTO>> listar(
+            @PageableDefault(size = 50, sort = "username") Pageable pageable) {
+        log.debug("GET /api/admin/preferencias-etiquetas page={} size={}",
+                pageable.getPageNumber(), pageable.getPageSize());
+        return ResponseEntity.ok(service.listarTodas(pageable).map(PreferenciasEtiquetasDTO::fromEntity));
     }
 
     /**

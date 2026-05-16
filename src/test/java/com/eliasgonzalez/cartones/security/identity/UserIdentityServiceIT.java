@@ -104,7 +104,7 @@ class UserIdentityServiceIT extends AbstractPostgresIT {
 
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    void renameConColisionEnPreferenciasDejaRowViejaHuerfana() {
+    void renameConColisionEnPreferenciasBorraLaRowViejaYPreservaLaDestino() {
         String sub = UUID.randomUUID().toString();
         service.registrarUsoYPropagarSiCambio(sub, "juan");
 
@@ -126,8 +126,9 @@ class UserIdentityServiceIT extends AbstractPostgresIT {
         // La row destino NO debe haberse sobreescrito.
         var destino = preferenciasRepo.findById("juanperez").orElseThrow();
         assertThat(destino.getLayoutEtiqueta()).isEqualTo(LayoutEtiqueta.CUATRO_POR_HOJA);
-        // La row vieja sigue ahí huérfana (queda para análisis manual).
-        assertThat(preferenciasRepo.findById("juan")).isPresent();
+        // La row vieja se borra (no la dejamos huérfana porque su contenido es
+        // inaccesible para el user, que ahora está identificado por 'juanperez').
+        assertThat(preferenciasRepo.findById("juan")).isEmpty();
         // user_identity se actualiza igual.
         assertThat(userIdentityRepo.findById(sub).orElseThrow().getCurrentPreferredUsername())
                 .isEqualTo("juanperez");
