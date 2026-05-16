@@ -39,8 +39,6 @@ public class VendedorController {
                 file != null ? LogSanitizer.safe(file.getOriginalFilename()) : "null");
         MultipartFileValidator.validarXlsx(file);
 
-        String procesoIdCreado = vendedorService.iniciarProceso();
-        CargaVendedoresResponseDTO filasIgnoradas = vendedorService.procesarExcel(file, procesoIdCreado);
-        return ResponseEntity.ok(filasIgnoradas);
+        return ResponseEntity.ok(vendedorService.cargarDesdeExcel(file));
     }
 }

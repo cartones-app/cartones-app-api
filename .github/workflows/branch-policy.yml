@@ -1,0 +1,49 @@
+name: Branch policy
+
+# Bloquea PRs que no respetan el flujo: next → develop → master.
+# Si un PR a develop viene de otra branch que no sea next (o un PR a master
+# de otra que no sea develop), este check falla y la rule de branch
+# protection impide el merge.
+#
+# Justificación: develop y master se mantienen como ramas "promovidas",
+# nunca como destino directo de features. Cualquier cambio pasa por next
+# primero — eso garantiza que CI, lint y reviews corren sobre el set
+# completo y no quedan PRs sueltos que rompen el merge upstream.
+
+on:
+  pull_request:
+    branches: [develop, master]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validar source branch
+        run: |
+          base="${{ github.base_ref }}"
+          head="${{ github.head_ref }}"
+          echo "PR: $head → $base"
+          case "$base" in
+            develop)
+              if [ "$head" != "next" ]; then
+                echo "::error::Los PRs a 'develop' DEBEN venir de 'next'. Recibido: '$head'."
+                echo "::error::Mergeá tu rama a 'next' primero, después abrí PR de next → develop."
+                exit 1
+              fi
+              ;;
+            master)
+              if [ "$head" != "develop" ]; then
+                echo "::error::Los PRs a 'master' DEBEN venir de 'develop'. Recibido: '$head'."
+                echo "::error::Promové develop primero (next → develop), después PR develop → master."
+                exit 1
+              fi
+              ;;
+            *)
+              echo "Base '$base' no está restringido — OK."
+              ;;
+          esac
+          echo "OK: flujo respetado."

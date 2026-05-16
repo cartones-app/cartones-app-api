@@ -1,0 +1,24 @@
+# ============================================================================
+# Override de desarrollo local.
+# ============================================================================
+# Usar SIEMPRE con el base:
+#   docker compose -f docker-compose.yml -f docker-compose.local.yml up -d
+# (o usar `scripts/dev-up.sh` que ya lo hace por nosotros).
+#
+# Propósitos:
+#  - Redefinir la network `proxy` (que en VPS prod es la del stack nginx-proxy)
+#    como no-externa, para que el `up` no falle con "network not found". En dev
+#    local nadie más vive en esa red, queda vacía.
+#  - Publicar el puerto del backend al host (en prod no se publica nada — el
+#    frontend y nginx-proxy lo alcanzan por DNS interno docker).
+# ============================================================================
+
+services:
+    backend:
+        ports:
+            - "${PORT_BACKEND}:9001"
+
+networks:
+    proxy:
+        external: false
+        name: cartones_backend_proxy_local

@@ -22,16 +22,20 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
+import com.eliasgonzalez.cartones.common.flags.FeatureFlagsService;
+import com.eliasgonzalez.cartones.common.flags.exception.FlagNotFoundException;
+import com.eliasgonzalez.cartones.common.flags.exception.InvalidFlagValueException;
+import com.eliasgonzalez.cartones.common.flags.registry.FlagRegistry;
 import com.eliasgonzalez.cartones.common.logging.LogSanitizer;
 
-import io.github.eliasss3990.openflags.core.OpenFlagsClient;
 import lombok.extern.slf4j.Slf4j;
 
 /**
  * Manejador global de excepciones que estandariza las respuestas de error
  * siguiendo RFC 7807 (Problem Details for HTTP APIs).
  *
- * <p><b>openflags</b>: usa {@link OpenFlagsClient} para evaluar el flag
+ * <p>
+ * <b>feature flags</b>: usa {@link FeatureFlagsService} para evaluar
  * {@code excel.expose-error-details} y decidir si los detalles de validación
  * de Excel se exponen en el campo {@code details} de la respuesta 422.
  */
@@ -39,15 +43,12 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class GlobalExceptionHandler {
 
-    /** Flag key: cuando true, las respuestas 422 de Excel incluyen el detalle de errores. */
-    private static final String FLAG_EXCEL_EXPOSE_ERROR_DETAILS = "excel.expose-error-details";
-
     @Value("${spring.profiles.active:prod}")
     private String activeProfile;
 
-    private final OpenFlagsClient flags;
+    private final FeatureFlagsService flags;
 
-    public GlobalExceptionHandler(OpenFlagsClient flags) {
+    public GlobalExceptionHandler(FeatureFlagsService flags) {
         this.flags = flags;
     }
 
@@ -90,7 +91,7 @@ public class GlobalExceptionHandler {
         // pero no se exponen al cliente. Default true (decisión 2026-05-09 del
         // usuario: los detalles son user-facing por diseño — el frontend muestra
         // "fila X / vendedor Y inválido" para que el operador corrija su Excel).
-        boolean exposeDetails = flags.getBooleanValue(FLAG_EXCEL_EXPOSE_ERROR_DETAILS, true);
+        boolean exposeDetails = flags.getBoolean(FlagRegistry.FLAG_EXCEL_EXPOSE_ERROR_DETAILS, true);
         List<String> details = exposeDetails ? ex.getErrorDetails() : List.of();
         ErrorResponse response = buildErrorResponse(
                 HttpStatus.UNPROCESSABLE_ENTITY, "Error de Procesamiento de Excel", ex.getMessage(), details, request);
@@ -143,6 +144,30 @@ public class GlobalExceptionHandler {
                 ex.getErrorDetails(),
                 request);
         return new ResponseEntity<>(response, HttpStatus.UNPROCESSABLE_ENTITY);
+    }
+
+    @ExceptionHandler(FlagNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleFlagNotFoundException(
+            FlagNotFoundException ex, HttpServletRequest request) {
+        log.warn(
+                "Flag no registrado en {}: {}",
+                LogSanitizer.safe(request.getRequestURI()),
+                LogSanitizer.safe(ex.getMessage()));
+        ErrorResponse response =
+                buildErrorResponse(HttpStatus.NOT_FOUND, "Flag no encontrado", ex.getMessage(), List.of(), request);
+        return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(InvalidFlagValueException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidFlagValueException(
+            InvalidFlagValueException ex, HttpServletRequest request) {
+        log.warn(
+                "Valor inválido para flag en {}: {}",
+                LogSanitizer.safe(request.getRequestURI()),
+                LogSanitizer.safe(ex.getMessage()));
+        ErrorResponse response = buildErrorResponse(
+                HttpStatus.BAD_REQUEST, "Valor inválido para flag", ex.getMessage(), List.of(), request);
+        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(ResourceNotFoundException.class)

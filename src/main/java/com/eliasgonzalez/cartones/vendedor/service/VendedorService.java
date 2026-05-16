@@ -40,15 +40,15 @@ public class VendedorService implements IVendedorService {
     }
 
     @Override
-    public CargaVendedoresResponseDTO procesarExcel(MultipartFile file, String procesoIdCreado) {
-        return excelVendedorLectorService.leerExcel(file, procesoIdCreado);
-    }
-
-    @Override
-    public String iniciarProceso() {
+    public CargaVendedoresResponseDTO cargarDesdeExcel(MultipartFile file) {
+        // Crear el proceso y procesar el Excel viven en la MISMA transacción.
+        // Si leerExcel() lanza (ej: hoja faltante, validación), rollback total —
+        // no queda un ProcesoDistribucion PENDIENTE huérfano en mis-distribuciones.
+        // Antes esto eran dos calls separadas al proxy y por ende dos tx distintas;
+        // la primera commiteaba antes de que la segunda fallara.
         String procesoIdCreado = UUID.randomUUID().toString();
         procesoDistribucionRepo.save(
                 ProcesoDistribucion.builder().procesoId(procesoIdCreado).build());
-        return procesoIdCreado;
+        return excelVendedorLectorService.leerExcel(file, procesoIdCreado);
     }
 }

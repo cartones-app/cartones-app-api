@@ -5,7 +5,6 @@ import java.util.List;
 import org.springframework.security.authentication.InsufficientAuthenticationException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -86,26 +85,20 @@ public class DistribucionListadoService {
     /**
      * Identidad del usuario actual para filtrar / verificar ownership.
      *
-     * Orden de resolución:
-     * 1. Principal es Jwt (perfil prod/dev con Keycloak): usa jwt.getSubject().
-     * 2. Hay Authentication no anonymous (tests con auth mockeada): usa
-     * auth.getName().
-     * 3. AnonymousAuthenticationToken (perfil local con LocalSecurityConfig
-     * permitAll):
-     * usa auth.getName() — devuelve "anonymousUser", que coincide con lo que
-     * AuditorAware setea en createdBy, así el filtrado funciona.
-     * 4. Sin Authentication: lanza InsufficientAuthenticationException → 401.
+     * Usa auth.getName() en todos los casos para mantener coherencia con
+     * AuditorAware (que persiste createdBy con el mismo valor). En el perfil
+     * con Keycloak, SecurityConfig configura el JwtAuthenticationConverter con
+     * principalClaimName="preferred_username", asi que getName() devuelve el
+     * username humano (no el UUID del claim sub). En perfil local con
+     * AnonymousAuthenticationToken, getName() devuelve "anonymousUser".
+     *
+     * Sin Authentication: lanza InsufficientAuthenticationException → 401.
      */
     private String obtenerSubActual() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null) {
             throw new InsufficientAuthenticationException("No hay autenticación en el SecurityContext");
         }
-        if (auth.getPrincipal() instanceof Jwt jwt) {
-            return jwt.getSubject();
-        }
-        // AnonymousAuthenticationToken devuelve "anonymousUser" — válido en perfil
-        // local.
         return auth.getName();
     }
 }

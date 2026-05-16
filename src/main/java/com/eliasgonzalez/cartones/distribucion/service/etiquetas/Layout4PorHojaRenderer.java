@@ -1,0 +1,163 @@
+package com.eliasgonzalez.cartones.distribucion.service.etiquetas;
+
+import com.eliasgonzalez.cartones.distribucion.domain.enums.LayoutEtiqueta;
+import com.eliasgonzalez.cartones.distribucion.service.dto.EtiquetaDTO;
+import com.lowagie.text.Element;
+import com.lowagie.text.pdf.BaseFont;
+import com.lowagie.text.pdf.PdfContentByte;
+import org.springframework.stereotype.Component;
+
+import java.util.List;
+
+/**
+ * Layout compacto: 4 etiquetas por A4. Comprime el diseño de 3-por-hoja para
+ * entrar en ~189pt de alto (vs 257pt del Layout3).
+ *
+ * <p>Decisiones de espacio (de arriba a abajo, todo relativo a {@code yTop}):
+ * <ul>
+ *   <li>Cabecera (3 líneas) en {@code -14, -26, -38} — interlineado 12.</li>
+ *   <li>Divisoria en {@code -48}.</li>
+ *   <li>Nombre vendedor en {@code -62}.</li>
+ *   <li>Columnas SENETÉ / TELEBINGO arrancan en {@code -78} con interlineado
+ *       9pt y RESULTADOS sin un gap grande. Con N=4 rangos (típico) el bloque
+ *       termina ~y+34, dejando aire respecto al saldo abajo.</li>
+ *   <li>Saldo en una sola línea ({@code "SALDO  Gs. ..."}) en {@code y+12} —
+ *       más compacto que tener label + valor en líneas separadas.</li>
+ * </ul>
+ *
+ * <p>Trade-off conocido: si N≥6, el bloque de columnas puede pisar el saldo.
+ * Mismo límite que el Layout3 (donde el problema aparece en N≥8) y se mitiga
+ * solo con la reducción de fuente automática para N>4.
+ */
+@Component
+public class Layout4PorHojaRenderer implements EtiquetaLayoutRenderer {
+
+    @Override
+    public LayoutEtiqueta getLayout() {
+        return LayoutEtiqueta.CUATRO_POR_HOJA;
+    }
+
+    @Override
+    public void dibujarEtiqueta(
+            PdfContentByte cb,
+            ContextoEtiqueta ctx,
+            float x, float y, float ancho, float alto) {
+
+        if (ctx.etiqueta() == null) {
+            return;
+        }
+        EtiquetaDTO item = ctx.etiqueta();
+        BaseFont helv = ctx.fontNormal();
+        BaseFont bold = ctx.fontBold();
+        float yTop = y + alto;
+
+        cb.setLineWidth(1f);
+        cb.rectangle(x, y, ancho, alto);
+        cb.stroke();
+
+        // Número vendedor (esquina sup derecha)
+        cb.beginText();
+        cb.setFontAndSize(bold, 20);
+        cb.showTextAligned(Element.ALIGN_RIGHT, "#" + item.getNumeroVendedor(), x + ancho - 5, yTop - 20, 0);
+        cb.endText();
+
+        // Cabecera izquierda
+        cb.beginText();
+        cb.setFontAndSize(bold, 9);
+        cb.setTextMatrix(x + 10, yTop - 14);
+        cb.showText("ROBERTO GONZÁLEZ");
+        cb.setTextMatrix(x + 10, yTop - 26);
+        cb.showText("DIST - ITAUGUÁ - PY");
+        cb.setTextMatrix(x + 10, yTop - 38);
+        cb.showText("0983 433572");
+        cb.endText();
+
+        // Cabecera derecha (fechas)
+        cb.beginText();
+        cb.setFontAndSize(bold, 9);
+        float xFechas = x + ancho - 65;
+        if (ctx.fechasIguales()) {
+            cb.showTextAligned(Element.ALIGN_RIGHT, "SORTEO: " + ctx.textoFechaSenete(), xFechas, yTop - 26, 0);
+        } else {
+            cb.showTextAligned(Element.ALIGN_RIGHT, "SORTEO SENETÉ: " + ctx.textoFechaSenete(),    xFechas, yTop - 20, 0);
+            cb.showTextAligned(Element.ALIGN_RIGHT, "SORTEO TELEBINGO: " + ctx.textoFechaTelebingo(), xFechas, yTop - 32, 0);
+        }
+        cb.endText();
+
+        // Divisoria
+        cb.moveTo(x, yTop - 48);
+        cb.lineTo(x + ancho, yTop - 48);
+        cb.stroke();
+
+        // Nombre vendedor (más arriba que Layout3 para reservar fondo al saldo)
+        cb.beginText();
+        cb.setFontAndSize(bold, 12);
+        cb.showTextAligned(Element.ALIGN_CENTER,
+                item.getNombre() != null ? item.getNombre().toUpperCase() : "",
+                x + ancho / 2f, yTop - 62, 0);
+        cb.endText();
+
+        // Columnas SENETÉ + TELEBINGO comprimidas
+        float xCentroSenete    = x + 80;
+        float xCentroTelebingo = x + ancho - 80;
+        float yInicioColumnas  = yTop - 78;
+
+        dibujarColumna(cb, "SENETÉ",    item.getSeneteRangos(),    item.getSeneteCartones(),    item.getResultadoSenete(),
+                xCentroSenete, yInicioColumnas, helv, bold);
+        dibujarColumna(cb, "TELEBINGO", item.getTelebingoRangos(), item.getTelebingoCartones(), item.getResultadoTelebingo(),
+                xCentroTelebingo, yInicioColumnas, helv, bold);
+
+        // Saldo en una sola línea, centrado, justo arriba del borde inferior.
+        // Combina label + valor para no gastar dos líneas.
+        cb.beginText();
+        cb.setFontAndSize(bold, 11);
+        cb.showTextAligned(Element.ALIGN_CENTER,
+                "SALDO   Gs. " + (item.getSaldo() != null ? item.getSaldo() : "0"),
+                x + ancho / 2f, y + 12, 0);
+        cb.endText();
+    }
+
+    private void dibujarColumna(
+            PdfContentByte cb,
+            String titulo,
+            List<String> rangos,
+            String total,
+            String resultado,
+            float xCentro,
+            float yInicio,
+            BaseFont fNorm,
+            BaseFont fBold) {
+        float curY = yInicio;
+
+        cb.beginText();
+
+        cb.setFontAndSize(fBold, 10);
+        cb.showTextAligned(Element.ALIGN_CENTER, titulo, xCentro, curY, 0);
+        curY -= 11;
+
+        cb.setFontAndSize(fNorm, 9);
+        if (rangos != null && rangos.size() > 4) {
+            cb.setFontAndSize(fNorm, 8);
+        }
+        if (rangos != null) {
+            for (String r : rangos) {
+                cb.showTextAligned(Element.ALIGN_CENTER, r, xCentro, curY, 0);
+                curY -= 9;
+            }
+        }
+
+        cb.setFontAndSize(fBold, 9);
+        cb.showTextAligned(Element.ALIGN_CENTER,
+                "TOTAL ------------> (" + (total != null ? total : "0") + ")",
+                xCentro, curY, 0);
+
+        curY -= 14;
+
+        cb.setFontAndSize(fBold, 9);
+        cb.showTextAligned(Element.ALIGN_CENTER, "RESULTADOS", xCentro, curY, 0);
+        cb.setFontAndSize(fNorm, 9);
+        cb.showTextAligned(Element.ALIGN_CENTER, resultado != null ? resultado : "0", xCentro, curY - 10, 0);
+
+        cb.endText();
+    }
+}

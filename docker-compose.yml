@@ -24,32 +24,6 @@ services:
       timeout: 5s
       retries: 5
 
-  keycloak:
-    image: quay.io/keycloak/keycloak:26.1
-    container_name: cartones_keycloak
-    command: start-dev --import-realm
-    environment:
-      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USER:-admin}
-      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD requerido}
-      KC_HTTP_PORT: 8080
-      KC_HTTP_ENABLED: "true"
-      KC_HEALTH_ENABLED: "true"
-      # KC_HOSTNAME define el valor del claim 'iss' en los tokens JWT
-      KC_HOSTNAME: localhost
-      KC_HOSTNAME_PORT: ${PORT_KEYCLOAK:-8080}
-      KC_HOSTNAME_STRICT: "false"
-      KC_HOSTNAME_STRICT_BACKCHANNEL: "false"
-    volumes:
-      - ./keycloak/realm-cartones.json:/opt/keycloak/data/import/realm-cartones.json:ro
-    ports:
-      - "127.0.0.1:${PORT_KEYCLOAK:-8080}:8080"
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:9000/health/ready || exit 1"]
-      interval: 15s
-      timeout: 10s
-      retries: 8
-      start_period: 60s
-
   backend:
     build:
       context: .
@@ -69,17 +43,36 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB}
       SPRING_CONFIG_IMPORT: "configtree:/run/secrets/"
 
-      # Keycloak: issuer-uri usa localhost (iss del JWT), jwk-set-uri usa hostname interno Docker
-      KEYCLOAK_ISSUER_URI: http://localhost:${PORT_KEYCLOAK:-8080}/realms/cartones
-      KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/cartones/protocol/openid-connect/certs
+      # Keycloak — corre externo a este compose (ver repo cartones-app/infra-keycloak).
+      # issuer-uri es lo que el backend valida contra el claim `iss` del JWT;
+      # jwk-set-uri es el endpoint que el backend usa para descargar las public keys.
+      # En dev local apuntan a localhost:8080 (Keycloak corriendo via infra-keycloak);
+      # en prod, al dominio público (ej. https://keycloak.midominio.com/...).
+      KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI}
+      KEYCLOAK_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI}
 
-    ports:
-      - "${PORT_BACKEND}:9001"
+    # Sin `ports:` en el base: en VPS prod el backend NO publica nada al host
+    # — frontend y nginx-proxy lo alcanzan por DNS interno docker (`backend:9001`)
+    # y nadie de afuera del VPS debería poder conectar directo. El override
+    # docker-compose.local.yml lo expone para curl/admin en dev.
     depends_on:
       db:
         condition: service_healthy
-      keycloak:
-        condition: service_healthy
+    networks:
+      # Network del proyecto (db + backend, default).
+      - default
+      # Network donde vive el container de Keycloak (definida en infra-keycloak).
+      # El backend usa el DNS interno `keycloak:8080` para bajar las public keys
+      # del JWK set. issuer-uri queda como `http://localhost:8080/...` porque
+      # eso es lo que dice el claim `iss` del JWT (Spring lo valida por string).
+      - keycloak-proxy
+      # Network del stack nginx-proxy en el VPS prod. El frontend (en la misma
+      # network) resuelve `backend:9001` por DNS interno docker para sus
+      # rewrites de /api-proxy/* (ver next.config.ts). En dev local NO existe
+      # esta network — el override docker-compose.local.yml la redefine como
+      # no-externa para no romper el `up` (queda como red vacía sin uso real,
+      # porque en dev el frontend usa network_mode: host).
+      - proxy
     secrets:
       - source: db_user
         target: spring.datasource.username
@@ -96,3 +89,16 @@ secrets:
     file: ./secrets_store/db_user.txt
   db_password:
     file: ./secrets_store/db_password.txt
+
+networks:
+  default:
+  # Network externa creada por el stack de infra-keycloak (override local).
+  # El name fijo evita depender de cómo Compose prefije la red según el directorio.
+  keycloak-proxy:
+    external: true
+    name: infra_keycloak_proxy_local
+  # Network externa creada por el stack nginx-proxy en el VPS prod (compartida
+  # con el frontend). En dev local NO existe — el override docker-compose.local.yml
+  # la redefine como no-externa.
+  proxy:
+    external: true

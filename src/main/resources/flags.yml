@@ -9,9 +9,13 @@
 #
 # Para sobreescribir valores en runtime sin rebuild, montar un volumen con
 # un flags.yml externo y apuntar openflags.file.path en application-*.yml.
+#
+# Alternativa runtime (preferida): el admin puede pisar cualquier flag desde
+# /api/admin/feature-flags (solo rol ADMIN). El override vive en la tabla
+# flag_override y tiene prioridad sobre este YAML. El default acá sigue
+# siendo el fallback cuando se borra el override.
 
 flags:
-
   # ============================================================================
   # Excel processing — exposición de detalles de error
   # ============================================================================
@@ -26,27 +30,30 @@ flags:
       mensaje genérico y los detalles quedan en logs server-side.
 
   # ============================================================================
-  # Módulo ruta — kill switch para emergencia
+  # Gating de páginas del frontend — controlado desde /admin/feature-flags.
+  # Cuando un page.X.enabled es false, el sidebar oculta el item y el acceso
+  # directo a la URL muestra un cartel de "Página deshabilitada".
   # ============================================================================
-  ruta.enabled:
+  page.upload.enabled:
     type: boolean
     value: true
     enabled: true
-    description: >
-      Habilita el módulo ruta (POST /api/ruta/* y /api/admin/ruta/*). Toggleable
-      a runtime para desactivar el módulo sin redeploy si se detecta un bug
-      crítico. Cuando false, los endpoints siguen existiendo pero devuelven
-      503 Service Unavailable.
+    description: Habilita la página /upload (Nueva distribución).
 
-  # ============================================================================
-  # Distribución — A/B test placeholder de algoritmo
-  # ============================================================================
-  simulacion.algoritmo:
-    type: string
-    value: legacy
+  page.mis-distribuciones.enabled:
+    type: boolean
+    value: true
     enabled: true
-    description: >
-      Selecciona el algoritmo de distribución de cartones. Hoy solo existe
-      'legacy'. Cuando se implemente un alternativo ('nuevo'), basta con
-      reemplazar este flag por una regla multivariant para hacer A/B test
-      sticky por procesoId.
+    description: Habilita la página /mis-distribuciones.
+
+  page.configuracion.enabled:
+    type: boolean
+    value: true
+    enabled: true
+    description: Habilita la página /configuracion.
+
+  page.ruta.enabled:
+    type: boolean
+    value: true
+    enabled: true
+    description: Habilita la página /ruta (Recorrido de ruta).

@@ -27,7 +27,7 @@ public class DistribucionOrquestadorService {
         ProcesoDistribucion proceso = buscarProceso(procesoId);
         log.info("Proceso encontrado: {}", proceso.getProcesoId());
 
-        ProcesoEstadoService.PendienteToVerificando(procesoId, proceso);
+        ProcesoEstadoService.PendienteToSimulado(procesoId, proceso);
         procesoDistribucionRepo.save(proceso);
 
         List<VendedorSimuladoDTO> resultado = distribucionService.simularDistribucion(solicitud);

@@ -58,7 +58,7 @@ El perfil `local` deshabilita toda autenticación. Útil para probar endpoints r
 
 ---
 
-### Opción B — Con Docker Compose (PostgreSQL + Keycloak + Backend)
+### Opción B — Con Docker Compose (PostgreSQL + Backend)
 
 **1. Copiar y configurar variables de entorno:**
 
@@ -77,23 +77,58 @@ cp secrets_store/db_password.txt.example secrets_store/db_password.txt
 
 **3. Levantar todos los servicios:**
 
+> [!IMPORTANT]
+> El backend necesita la red docker `infra_keycloak_proxy_local` (creada por
+> el stack [`infra-keycloak`](https://github.com/cartones-app/infra-keycloak))
+> para resolver `keycloak:8080` por DNS interno. `docker compose up` directo
+> falla si la red no existe.
+>
+> Usá `./scripts/dev-up.sh`: detecta si la red no existe, levanta
+> `infra-keycloak` automáticamente desde `INFRA_KEYCLOAK_PATH` (configurable
+> en `.env`, default `../infra-keycloak`), y después levanta el backend.
+
 ```bash
-docker compose up -d --build
+./scripts/dev-up.sh                  # recomendado: auto-orquesta infra-keycloak si hace falta
+# o (manual)
+cd ../infra-keycloak && docker compose -f docker-compose.yml -f docker-compose.local.yml up -d
+cd -                                 # volver al backend
+docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
 ```
 
-Esto levanta tres contenedores:
+> El override `docker-compose.local.yml` solo redefine la network `proxy` como
+> no-externa (es la del nginx-proxy del VPS prod). Sin él, el `up` falla porque
+> el base la declara externa.
+
+Esto levanta dos contenedores:
 
 - `postgres_cartones_db` — PostgreSQL en el puerto `PORT_DB`
-- `cartones_keycloak` — Keycloak en el puerto `PORT_KEYCLOAK` (default 8080)
 - `cartones_backend` — Spring Boot en el puerto `PORT_BACKEND`
 
-Keycloak importa automáticamente el realm `cartones` desde `keycloak/realm-cartones.json`.
+#### Dependencia inter-repo
+
+El backend depende de la network y DNS internos del stack `infra-keycloak` (local dev):
+
+| Lo que expone `infra-keycloak` | Lo que consume `backend-AppWeb` |
+|---|---|
+| Network externa `infra_keycloak_proxy_local` | Se une como `keycloak-proxy` en `docker-compose.yml` |
+| Container DNS: `keycloak` | `KEYCLOAK_JWK_SET_URI=http://keycloak:8080/...` |
+| Puerto interno: `8080` | idem |
+| Claim `iss` del JWT: `http://localhost:8080/realms/cartones` | `KEYCLOAK_ISSUER_URI=http://localhost:8080/realms/cartones` (string match) |
+
+Si el nombre de la network o el container cambian en `infra-keycloak`, hay que actualizarlo
+en `docker-compose.yml:networks.keycloak-proxy.name` y/o `.env`.
+
+En VPS prod el backend se une **también** a la network externa `proxy` del stack
+nginx-proxy. El frontend (que vive en esa misma red) resuelve `http://backend:9001`
+por DNS interno docker y forwardea ahí las llamadas vía rewrites de Next
+(`/api-proxy/*`). El browser nunca habla directo al backend. En dev local
+`proxy` no existe — el override `docker-compose.local.yml` la redefine como
+no-externa para no romper el `up`.
 
 **Ver logs:**
 
 ```bash
 docker compose logs -f backend
-docker compose logs -f keycloak
 ```
 
 **Detener:**
@@ -164,9 +199,8 @@ curl -H "Authorization: Bearer <TOKEN>" http://localhost:9001/api/vendedores/<pr
 | `POSTGRES_DB` | `cartones` | Nombre de la base de datos |
 | `PORT_DB` | `5432` | Puerto PostgreSQL expuesto en host |
 | `PORT_BACKEND` | `9001` | Puerto del backend expuesto en host |
-| `PORT_KEYCLOAK` | `8080` | Puerto de Keycloak expuesto en host |
-| `KEYCLOAK_ADMIN_USER` | `admin` | Usuario admin de Keycloak |
-| `KEYCLOAK_ADMIN_PASSWORD` | `*****` | Contraseña admin de Keycloak |
+| `KEYCLOAK_ISSUER_URI` | `http://localhost:8080/realms/cartones` | URL del realm (claim `iss` del JWT). Keycloak vive en repo `cartones-app/infra-keycloak`. |
+| `KEYCLOAK_JWK_SET_URI` | `http://keycloak:8080/realms/cartones/protocol/openid-connect/certs` | Endpoint JWKS para validar firmas. En dev usa el DNS interno del docker network compartido con `infra-keycloak` (ver "Dependencia inter-repo"). |
 | `APP_UPLOADS_RATE_LIMIT_RPM` | `10` | Rate limit por usuario en endpoints de upload |
 
 ### Railway (staging)
