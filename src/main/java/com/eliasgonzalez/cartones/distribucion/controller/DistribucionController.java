@@ -1,6 +1,5 @@
 package com.eliasgonzalez.cartones.distribucion.controller;
 
-import java.io.IOException;
 import java.util.List;
 
 import jakarta.validation.Valid;
@@ -9,12 +8,19 @@ import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import com.eliasgonzalez.cartones.common.logging.LogSanitizer;
+import com.eliasgonzalez.cartones.distribucion.controller.dto.ArchivosGeneradosDTO;
 import com.eliasgonzalez.cartones.distribucion.controller.dto.ProcesoDistribucionResumenDTO;
 import com.eliasgonzalez.cartones.distribucion.controller.dto.SimulacionRequestDTO;
 import com.eliasgonzalez.cartones.distribucion.controller.dto.VendedorSimuladoDTO;
+import com.eliasgonzalez.cartones.distribucion.domain.ProcesoDistribucion;
 import com.eliasgonzalez.cartones.distribucion.service.DistribucionDescargaService;
 import com.eliasgonzalez.cartones.distribucion.service.DistribucionListadoService;
 import com.eliasgonzalez.cartones.distribucion.service.DistribucionOrquestadorService;
@@ -32,11 +38,6 @@ public class DistribucionController {
     private final DistribucionDescargaService gestionArchivoPdf;
     private final DistribucionListadoService listadoService;
 
-    /**
-     * Lista los procesos de distribución del usuario autenticado, más recientes
-     * primero.
-     * No incluye los BLOBs de PDFs — solo metadata para mostrar en una grilla.
-     */
     @GetMapping
     public ResponseEntity<List<ProcesoDistribucionResumenDTO>> listarPropios() {
         log.debug("GET /api/distribuciones");
@@ -46,39 +47,44 @@ public class DistribucionController {
     @PostMapping("/{procesoId}/simular")
     public ResponseEntity<List<VendedorSimuladoDTO>> simular(
             @Valid @RequestBody SimulacionRequestDTO solicitud, @PathVariable String procesoId) {
-
         log.debug("POST /api/distribuciones/{}/simular", LogSanitizer.safe(procesoId));
         log.info("Iniciando simulación para el proceso ID: {}", LogSanitizer.safe(procesoId));
         return ResponseEntity.ok(gestionDistribucion.procesarSimulacion(procesoId, solicitud));
     }
 
     /**
-     * Descarga el ZIP con los PDFs (etiquetas + resumen) del proceso indicado.
-     * Solo el usuario que creó el proceso puede bajarlo (ownership).
-     * Para bypass admin, ver AdminDistribucionController.
+     * Genera los archivos PDF en filesystem y transiciona el proceso a COMPLETADO.
+     * Se invoca una vez tras la simulación exitosa.
      */
-    @GetMapping("/{procesoId}/pdfs")
-    public ResponseEntity<Resource> descargar(@PathVariable String procesoId) throws IOException {
-        log.debug("GET /api/distribuciones/{}/pdfs", LogSanitizer.safe(procesoId));
-        listadoService.verificarOwnership(procesoId);
-
-        Resource zip = gestionArchivoPdf.generarPaqueteZip(procesoId);
-
-        return ResponseEntity.ok()
-                .contentType(MediaType.parseMediaType("application/zip"))
-                .header(
-                        HttpHeaders.CONTENT_DISPOSITION,
-                        "attachment; filename=\"zip-" + sanitizarFilename(procesoId) + ".zip\"")
-                .contentLength(zip.contentLength())
-                .body(zip);
+    @PostMapping("/{procesoId}/archivos")
+    public ResponseEntity<ArchivosGeneradosDTO> generarArchivos(@PathVariable String procesoId) {
+        log.debug("POST /api/distribuciones/{}/archivos", LogSanitizer.safe(procesoId));
+        ProcesoDistribucion proceso = gestionArchivoPdf.generarArchivos(procesoId);
+        return ResponseEntity.ok(new ArchivosGeneradosDTO(proceso.getProcesoId(), proceso.getArchivosGeneradosEn()));
     }
 
-    /**
-     * Sanitiza el procesoId para usarlo en Content-Disposition. Solo permite
-     * caracteres alfanuméricos, guiones y guión bajo. Defensa en profundidad:
-     * el procesoId server-generated es un UUID, pero esto cierra cualquier
-     * vector de inyección de header si el contrato cambia.
-     */
+    @GetMapping("/{procesoId}/etiquetas.pdf")
+    public ResponseEntity<Resource> descargarEtiquetas(@PathVariable String procesoId) {
+        log.debug("GET /api/distribuciones/{}/etiquetas.pdf", LogSanitizer.safe(procesoId));
+        Resource resource = gestionArchivoPdf.obtenerEtiquetas(procesoId);
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"Imprimir_etiquetas-" + sanitizarFilename(procesoId) + ".pdf\"")
+                .body(resource);
+    }
+
+    @GetMapping("/{procesoId}/resumen.pdf")
+    public ResponseEntity<Resource> descargarResumen(@PathVariable String procesoId) {
+        log.debug("GET /api/distribuciones/{}/resumen.pdf", LogSanitizer.safe(procesoId));
+        Resource resource = gestionArchivoPdf.obtenerResumen(procesoId);
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"Resumen_entrega-" + sanitizarFilename(procesoId) + ".pdf\"")
+                .body(resource);
+    }
+
     static String sanitizarFilename(String raw) {
         if (raw == null) return "x";
         return raw.replaceAll("[^a-zA-Z0-9_-]", "_");

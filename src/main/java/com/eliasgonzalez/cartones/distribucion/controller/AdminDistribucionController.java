@@ -1,6 +1,5 @@
 package com.eliasgonzalez.cartones.distribucion.controller;
 
-import java.io.IOException;
 import java.util.List;
 
 import org.springframework.core.io.Resource;
@@ -8,7 +7,10 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import com.eliasgonzalez.cartones.common.logging.LogSanitizer;
 import com.eliasgonzalez.cartones.distribucion.controller.dto.ProcesoDistribucionResumenDTO;
@@ -37,28 +39,31 @@ public class AdminDistribucionController {
     private final DistribucionListadoService listadoService;
     private final DistribucionDescargaService gestionArchivoPdf;
 
-    /**
-     * Lista todos los procesos del sistema, más recientes primero.
-     */
     @GetMapping
     public ResponseEntity<List<ProcesoDistribucionResumenDTO>> listarTodos() {
         log.debug("GET /api/admin/distribuciones");
         return ResponseEntity.ok(listadoService.listarTodos());
     }
 
-    /**
-     * Descarga el ZIP de cualquier proceso (sin ownership check).
-     */
-    @GetMapping("/{procesoId}/pdfs")
-    public ResponseEntity<Resource> descargar(@PathVariable String procesoId) throws IOException {
-        log.debug("GET /api/admin/distribuciones/{}/pdfs", LogSanitizer.safe(procesoId));
-        Resource zip = gestionArchivoPdf.generarPaqueteZip(procesoId);
+    @GetMapping("/{procesoId}/etiquetas.pdf")
+    public ResponseEntity<Resource> descargarEtiquetas(@PathVariable String procesoId) {
+        log.debug("GET /api/admin/distribuciones/{}/etiquetas.pdf", LogSanitizer.safe(procesoId));
+        Resource resource = gestionArchivoPdf.obtenerEtiquetasAdmin(procesoId);
         return ResponseEntity.ok()
-                .contentType(MediaType.parseMediaType("application/zip"))
-                .header(
-                        HttpHeaders.CONTENT_DISPOSITION,
-                        "attachment; filename=\"zip-" + DistribucionController.sanitizarFilename(procesoId) + ".zip\"")
-                .contentLength(zip.contentLength())
-                .body(zip);
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"Imprimir_etiquetas-" + DistribucionController.sanitizarFilename(procesoId) + ".pdf\"")
+                .body(resource);
+    }
+
+    @GetMapping("/{procesoId}/resumen.pdf")
+    public ResponseEntity<Resource> descargarResumen(@PathVariable String procesoId) {
+        log.debug("GET /api/admin/distribuciones/{}/resumen.pdf", LogSanitizer.safe(procesoId));
+        Resource resource = gestionArchivoPdf.obtenerResumenAdmin(procesoId);
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"Resumen_entrega-" + DistribucionController.sanitizarFilename(procesoId) + ".pdf\"")
+                .body(resource);
     }
 }

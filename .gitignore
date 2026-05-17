@@ -79,3 +79,10 @@ mongo_data/
 # =================================================================
 /coverage/
 *.exec
+
+# =================================================================
+# 6. STORAGE DE ARCHIVOS GENERADOS
+# =================================================================
+# Volumen del backend con los PDFs (etiquetas + resumen). En dev se 
+# monta como bind a ./storage; en prod a /opt/cartones/storage.
+/storage/

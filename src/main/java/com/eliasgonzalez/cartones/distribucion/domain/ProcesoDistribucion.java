@@ -2,16 +2,19 @@ package com.eliasgonzalez.cartones.distribucion.domain;
 
 import com.eliasgonzalez.cartones.distribucion.domain.enums.EstadoEnum;
 import com.eliasgonzalez.cartones.common.audit.EntidadAuditable;
-import jakarta.persistence.*;
-import lombok.*;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import jakarta.persistence.Version;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
-/**
- * Proceso de distribución de cartones. Guarda el estado del proceso
- * y los PDFs generados (etiquetas + resumen) como BLOBs.
- * Reemplaza la tabla PROCESOS_PDF con un esquema normalizado y auditado.
- */
+import java.time.LocalDateTime;
+
 @Entity
 @Table(name = "proceso_distribucion")
 @AllArgsConstructor
@@ -27,15 +30,11 @@ public class ProcesoDistribucion extends EntidadAuditable {
     @Builder.Default
     private String estado = EstadoEnum.PENDIENTE.getValue();
 
-    @Lob
-    @JdbcTypeCode(SqlTypes.VARBINARY)
-    @Column(name = "pdf_etiquetas")
-    private byte[] pdfEtiquetas;
+    @Column(name = "archivos_generados_en")
+    private LocalDateTime archivosGeneradosEn;
 
-    @Lob
-    @JdbcTypeCode(SqlTypes.VARBINARY)
-    @Column(name = "pdf_resumen")
-    private byte[] pdfResumen;
+    @Column(name = "archivos_borrados_en")
+    private LocalDateTime archivosBorradosEn;
 
     @Version
     private Long version;

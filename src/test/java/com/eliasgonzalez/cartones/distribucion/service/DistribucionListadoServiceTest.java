@@ -51,9 +51,10 @@ class DistribucionListadoServiceTest {
     // ---- listarPropios -----------------------------------------------------
 
     @Test
-    void listarPropios_filtraPorSubDelJwtYNoCargaBlobs() {
+    void listarPropios_filtraPorSubDelJwtYExponeTimestamps() {
         autenticarConJwt("user-123");
-        ProcesoDistribucionResumenView v = vista("p-1", "PENDIENTE", "user-123", 1024L, 0L);
+        LocalDateTime generadoEn = LocalDateTime.now().minusDays(1);
+        ProcesoDistribucionResumenView v = vista("p-1", "COMPLETADO", "user-123", generadoEn, null);
         when(procesoRepo.findResumenByCreatedBy("user-123")).thenReturn(List.of(v));
 
         List<ProcesoDistribucionResumenDTO> resultado = service.listarPropios();
@@ -61,10 +62,8 @@ class DistribucionListadoServiceTest {
         assertThat(resultado).hasSize(1).first().satisfies(dto -> {
             assertThat(dto.getProcesoId()).isEqualTo("p-1");
             assertThat(dto.getCreatedBy()).isEqualTo("user-123");
-            assertThat(dto.isTieneEtiquetas()).isTrue();
-            assertThat(dto.isTieneResumen()).isFalse();
-            assertThat(dto.getTamanoEtiquetasBytes()).isEqualTo(1024L);
-            assertThat(dto.getTamanoResumenBytes()).isZero();
+            assertThat(dto.getArchivosGeneradosEn()).isEqualTo(generadoEn);
+            assertThat(dto.getArchivosBorradosEn()).isNull();
         });
         verify(procesoRepo).findResumenByCreatedBy("user-123");
         verify(procesoRepo, never()).findAllResumenOrderByCreatedAtDesc();
@@ -80,10 +79,6 @@ class DistribucionListadoServiceTest {
 
     @Test
     void listarPropios_perfilLocalConAnonymousAuth_filtraPorAnonymousUser() {
-        // En perfil local con LocalSecurityConfig (permitAll), Spring inyecta
-        // AnonymousAuthenticationToken con name="anonymousUser". El service debe
-        // filtrar por ese mismo string para que coincida con createdBy seteado
-        // por AuditorAware.
         autenticarAnonymous();
         when(procesoRepo.findResumenByCreatedBy("anonymousUser")).thenReturn(List.of());
 
@@ -96,19 +91,15 @@ class DistribucionListadoServiceTest {
     // ---- listarTodos -------------------------------------------------------
 
     @Test
-    void listarPropios_tamanosNullSeNormalizanA0YFlagsFalse() {
-        // La projection retorna Long que puede ser null si la columna es NULL en BD.
-        // El service tiene defensa explícita; este test cierra el contrato.
+    void listarPropios_timestampsNullSePropagan() {
         autenticarConJwt("user-Z");
         ProcesoDistribucionResumenView v = vista("p-z", "PENDIENTE", "user-Z", null, null);
         when(procesoRepo.findResumenByCreatedBy("user-Z")).thenReturn(List.of(v));
 
         ProcesoDistribucionResumenDTO dto = service.listarPropios().get(0);
 
-        assertThat(dto.getTamanoEtiquetasBytes()).isZero();
-        assertThat(dto.getTamanoResumenBytes()).isZero();
-        assertThat(dto.isTieneEtiquetas()).isFalse();
-        assertThat(dto.isTieneResumen()).isFalse();
+        assertThat(dto.getArchivosGeneradosEn()).isNull();
+        assertThat(dto.getArchivosBorradosEn()).isNull();
     }
 
     @Test
@@ -124,7 +115,8 @@ class DistribucionListadoServiceTest {
         autenticarConJwt("admin-1");
         when(procesoRepo.findAllResumenOrderByCreatedAtDesc())
                 .thenReturn(List.of(
-                        vista("p-1", "PENDIENTE", "user-A", 0L, 0L), vista("p-2", "COMPLETADO", "user-B", 200L, 100L)));
+                        vista("p-1", "PENDIENTE", "user-A", null, null),
+                        vista("p-2", "COMPLETADO", "user-B", LocalDateTime.now(), null)));
 
         List<ProcesoDistribucionResumenDTO> resultado = service.listarTodos();
 
@@ -153,9 +145,6 @@ class DistribucionListadoServiceTest {
 
     @Test
     void verificarOwnership_lanza404SiProcesoEsDeOtroUsuario() {
-        // Defensa intencional: 404 (no 403) para no filtrar la existencia del
-        // proceso a un usuario que no es dueño. Verificamos solo el tipo;
-        // el mensaje puede cambiar (i18n, refactor) sin romper el contrato.
         autenticarConJwt("user-B");
         when(procesoRepo.findByProcesoIdAndCreatedBy("p-1", "user-B")).thenReturn(Optional.empty());
 
@@ -201,42 +190,29 @@ class DistribucionListadoServiceTest {
     }
 
     private static ProcesoDistribucionResumenView vista(
-            String procesoId, String estado, String createdBy, Long tamEtiq, Long tamRes) {
+            String procesoId, String estado, String createdBy,
+            LocalDateTime archivosGeneradosEn, LocalDateTime archivosBorradosEn) {
         return new ProcesoDistribucionResumenView() {
             @Override
-            public String getProcesoId() {
-                return procesoId;
-            }
+            public String getProcesoId() { return procesoId; }
 
             @Override
-            public String getEstado() {
-                return estado;
-            }
+            public String getEstado() { return estado; }
 
             @Override
-            public LocalDateTime getCreatedAt() {
-                return LocalDateTime.now();
-            }
+            public LocalDateTime getCreatedAt() { return LocalDateTime.now(); }
 
             @Override
-            public LocalDateTime getUpdatedAt() {
-                return LocalDateTime.now();
-            }
+            public LocalDateTime getUpdatedAt() { return LocalDateTime.now(); }
 
             @Override
-            public String getCreatedBy() {
-                return createdBy;
-            }
+            public String getCreatedBy() { return createdBy; }
 
             @Override
-            public Long getTamanoEtiquetasBytes() {
-                return tamEtiq;
-            }
+            public LocalDateTime getArchivosGeneradosEn() { return archivosGeneradosEn; }
 
             @Override
-            public Long getTamanoResumenBytes() {
-                return tamRes;
-            }
+            public LocalDateTime getArchivosBorradosEn() { return archivosBorradosEn; }
         };
     }
 }
