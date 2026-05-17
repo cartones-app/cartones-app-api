@@ -25,9 +25,8 @@ import lombok.extern.slf4j.Slf4j;
  * del JWT).
  * - Los endpoints admin (/api/admin/distribuciones) no pasan por este filtro;
  * la autorización por rol ya se hace en SecurityConfig.
- * - Las queries de listado usan projection nativa para no traer los BLOBs
- * (PDFs)
- * a la JVM (ver ProcesoDistribucionRepository.findResumenByCreatedBy).
+ * - Las queries de listado usan projection nativa para no traer los bytes
+ * de archivos a la JVM.
  */
 @Service
 @RequiredArgsConstructor
@@ -67,18 +66,14 @@ public class DistribucionListadoService {
     }
 
     private ProcesoDistribucionResumenDTO aResumen(ProcesoDistribucionResumenView v) {
-        long tamEtiq = v.getTamanoEtiquetasBytes() == null ? 0 : v.getTamanoEtiquetasBytes();
-        long tamRes = v.getTamanoResumenBytes() == null ? 0 : v.getTamanoResumenBytes();
         return ProcesoDistribucionResumenDTO.builder()
                 .procesoId(v.getProcesoId())
                 .estado(v.getEstado())
                 .createdAt(v.getCreatedAt())
                 .updatedAt(v.getUpdatedAt())
                 .createdBy(v.getCreatedBy())
-                .tieneEtiquetas(tamEtiq > 0)
-                .tieneResumen(tamRes > 0)
-                .tamanoEtiquetasBytes(tamEtiq)
-                .tamanoResumenBytes(tamRes)
+                .archivosGeneradosEn(v.getArchivosGeneradosEn())
+                .archivosBorradosEn(v.getArchivosBorradosEn())
                 .build();
     }
 

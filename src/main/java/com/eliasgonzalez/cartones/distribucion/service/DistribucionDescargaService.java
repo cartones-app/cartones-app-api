@@ -1,58 +1,56 @@
 package com.eliasgonzalez.cartones.distribucion.service;
 
-import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
-
+import com.eliasgonzalez.cartones.common.exception.ResourceNotFoundException;
+import com.eliasgonzalez.cartones.distribucion.component.SimulacionCache;
+import com.eliasgonzalez.cartones.distribucion.domain.ProcesoDistribucion;
+import com.eliasgonzalez.cartones.distribucion.repository.ProcesoDistribucionRepository;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.eliasgonzalez.cartones.common.exception.FileProcessingException;
-import com.eliasgonzalez.cartones.distribucion.component.SimulacionCache;
-import com.eliasgonzalez.cartones.distribucion.domain.ProcesoDistribucion;
-import com.eliasgonzalez.cartones.distribucion.domain.enums.EstadoEnum;
-import com.eliasgonzalez.cartones.distribucion.repository.ProcesoDistribucionRepository;
-
-import lombok.RequiredArgsConstructor;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.List;
 
 @Service
-@RequiredArgsConstructor
+@Slf4j
 public class DistribucionDescargaService {
 
     private final IGeneradorPdfService pdfService;
     private final SimulacionCache saveInMemoryTemp;
     private final ProcesoDistribucionRepository procesoDistribucionRepo;
     private final DistribucionOrquestadorService gestionDistribucionService;
+    private final DistribucionListadoService listadoService;
+    private final Path storageDir;
+
+    public DistribucionDescargaService(
+            IGeneradorPdfService pdfService,
+            SimulacionCache saveInMemoryTemp,
+            ProcesoDistribucionRepository procesoDistribucionRepo,
+            DistribucionOrquestadorService gestionDistribucionService,
+            DistribucionListadoService listadoService,
+            @Value("${app.storage.directory:storage}") String storageDirectory) {
+        this.pdfService = pdfService;
+        this.saveInMemoryTemp = saveInMemoryTemp;
+        this.procesoDistribucionRepo = procesoDistribucionRepo;
+        this.gestionDistribucionService = gestionDistribucionService;
+        this.listadoService = listadoService;
+        this.storageDir = Paths.get(storageDirectory);
+    }
 
     /**
-     * Devuelve el ZIP del proceso.
-     *
-     * <p>
-     * Dos caminos:
-     * <ol>
-     * <li><b>Primer download tras simular</b> (estado=SIMULADO):
-     * genera los PDFs leyendo del SimulacionCache, los persiste en la fila
-     * del proceso y transiciona a COMPLETADO.</li>
-     * <li><b>Re-download</b> (estado=COMPLETADO con bytes ya persistidos):
-     * arma el ZIP directamente desde los bytes en DB. No depende del
-     * SimulacionCache (in-memory) ni regenera nada, así que sobrevive
-     * a reinicios del container y a múltiples descargas.</li>
-     * </ol>
-     *
-     * <p>
-     * Cualquier otro estado o ausencia de PDFs se delega a la rama 1, donde
-     * la validación de estado del PdfService levanta UnprocessableEntityException.
+     * Genera los archivos PDF para un proceso en estado SIMULADO, transiciona a
+     * COMPLETADO y persiste los timestamps.
      */
     @Transactional
-    public Resource generarPaqueteZip(String procesoId) {
-        ProcesoDistribucion proceso = gestionDistribucionService.buscarProceso(procesoId);
+    public ProcesoDistribucion generarArchivos(String procesoId) {
+        ProcesoDistribucion proceso = listadoService.verificarOwnership(procesoId);
 
-        if (esRedownloadValido(proceso)) {
-            return zipDesdeBytesPersistidos(proceso);
-        }
-
-        Resource zip = pdfService.obtenerZipPdfs(
+        pdfService.generarYPersistirArchivos(
                 procesoId,
                 proceso,
                 saveInMemoryTemp.getVendedorSimuladoDTOs(),
@@ -60,33 +58,77 @@ public class DistribucionDescargaService {
                 saveInMemoryTemp.getFechaSorteoTelebingo());
 
         ProcesoEstadoService.SimuladoToCompletado(procesoId, proceso);
-        procesoDistribucionRepo.save(proceso);
-
-        return zip;
+        return procesoDistribucionRepo.save(proceso);
     }
 
-    private boolean esRedownloadValido(ProcesoDistribucion proceso) {
-        if (!EstadoEnum.COMPLETADO.getValue().equals(proceso.getEstado())) {
-            return false;
-        }
-        byte[] etiq = proceso.getPdfEtiquetas();
-        byte[] resu = proceso.getPdfResumen();
-        return (etiq != null && etiq.length > 0) || (resu != null && resu.length > 0);
+    /**
+     * Devuelve el archivo de etiquetas para descarga.
+     * Verifica ownership y disponibilidad del archivo.
+     */
+    @Transactional(readOnly = true)
+    public Resource obtenerEtiquetas(String procesoId) {
+        ProcesoDistribucion proceso = listadoService.verificarOwnership(procesoId);
+        validarArchivosDisponibles(proceso, procesoId);
+        return resolverArchivo(procesoId, "etiquetas.pdf");
     }
 
-    private Resource zipDesdeBytesPersistidos(ProcesoDistribucion proceso) {
-        Map<String, byte[]> archivos = new HashMap<>();
-        if (proceso.getPdfEtiquetas() != null && proceso.getPdfEtiquetas().length > 0) {
-            archivos.put("Imprimir_etiquetas.pdf", proceso.getPdfEtiquetas());
+    /**
+     * Devuelve el archivo de resumen para descarga.
+     * Verifica ownership y disponibilidad del archivo.
+     */
+    @Transactional(readOnly = true)
+    public Resource obtenerResumen(String procesoId) {
+        ProcesoDistribucion proceso = listadoService.verificarOwnership(procesoId);
+        validarArchivosDisponibles(proceso, procesoId);
+        return resolverArchivo(procesoId, "resumen.pdf");
+    }
+
+    /**
+     * Versión admin: obtiene etiquetas sin verificar ownership.
+     */
+    @Transactional(readOnly = true)
+    public Resource obtenerEtiquetasAdmin(String procesoId) {
+        ProcesoDistribucion proceso = gestionDistribucionService.buscarProceso(procesoId);
+        validarArchivosDisponibles(proceso, procesoId);
+        return resolverArchivo(procesoId, "etiquetas.pdf");
+    }
+
+    /**
+     * Versión admin: obtiene resumen sin verificar ownership.
+     */
+    @Transactional(readOnly = true)
+    public Resource obtenerResumenAdmin(String procesoId) {
+        ProcesoDistribucion proceso = gestionDistribucionService.buscarProceso(procesoId);
+        validarArchivosDisponibles(proceso, procesoId);
+        return resolverArchivo(procesoId, "resumen.pdf");
+    }
+
+    private void validarArchivosDisponibles(ProcesoDistribucion proceso, String procesoId) {
+        if (proceso.getArchivosGeneradosEn() == null || proceso.getArchivosBorradosEn() != null) {
+            throw new ResourceNotFoundException("Archivos no disponibles para el proceso " + procesoId + ".",
+                    List.of());
         }
-        if (proceso.getPdfResumen() != null && proceso.getPdfResumen().length > 0) {
-            archivos.put("Resumen_entrega.pdf", proceso.getPdfResumen());
+    }
+
+    /**
+     * Resuelve el path absoluto del archivo dentro del directorio del proceso y
+     * valida que no escape de {@code storageDir/procesos}. Defensa en
+     * profundidad: el ownership check vía DB ya filtra IDs inválidos pero los
+     * IDs que no matchean nunca llegan acá; igualmente normalizamos antes de
+     * tocar el FS por si el contrato cambia.
+     */
+    private Resource resolverArchivo(String procesoId, String nombreArchivo) {
+        Path procesosRoot = storageDir.resolve("procesos").normalize();
+        Path procesoDir = procesosRoot.resolve(procesoId).normalize();
+        if (!procesoDir.startsWith(procesosRoot) || procesoDir.equals(procesosRoot)) {
+            throw new ResourceNotFoundException(
+                    "Archivos no disponibles para el proceso solicitado.", List.of());
         }
-        try {
-            return ZipEmpaquetadorService.crearZip(archivos);
-        } catch (IOException e) {
-            throw new FileProcessingException("Error armando ZIP desde bytes persistidos",
-                    java.util.List.of(e.getMessage()));
+        Path archivo = procesoDir.resolve(nombreArchivo);
+        if (!Files.exists(archivo)) {
+            throw new ResourceNotFoundException(
+                    "Archivo físico no encontrado para el proceso solicitado.", List.of());
         }
+        return new FileSystemResource(archivo);
     }
 }
