@@ -20,6 +20,13 @@ spring:
       maximum-pool-size: 20
       connection-timeout: 30000
       max-lifetime: 1800000
+      data-source-properties:
+        # search_path del PG driver. Necesario para que las native queries del
+        # repo (sin prefix de schema) resuelvan contra `cartones`. Hibernate
+        # `default_schema` solo aplica a queries generadas por él (JPQL/HQL),
+        # no a las native queries — esas ejecutan el SQL literal y caen en el
+        # search_path default (`public`).
+        currentSchema: ${APP_DB_SCHEMA:cartones}
 
   # Configuración de JPA/Hibernate
   jpa:

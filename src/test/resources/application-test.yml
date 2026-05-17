@@ -7,6 +7,12 @@ spring:
   datasource:
     # Sobrescrito por @DynamicPropertySource en AbstractPostgresIT.
     driver-class-name: org.postgresql.Driver
+    hikari:
+      data-source-properties:
+        # Mismo motivo que application.yml: las native queries del repo
+        # necesitan el search_path apuntando a `cartones` para resolver
+        # tablas sin prefijo de schema.
+        currentSchema: cartones
 
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
