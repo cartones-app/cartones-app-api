@@ -34,6 +34,11 @@ spring:
 app:
   cors:
     origins: http://localhost:3000
+  storage:
+    # Para tests que levantan el contexto completo (sin @TempDir explícito):
+    # default tmp del sistema para no contaminar la raíz del repo si algún
+    # test instancia GeneradorPdfService vía Spring sin override.
+    directory: ${java.io.tmpdir}/cartones-test
 
 logging:
   level:

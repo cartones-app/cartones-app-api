@@ -4,7 +4,7 @@
 -- Decisión de diseño: los bytes ya no se persisten en Postgres. En su lugar
 -- se trackean timestamps que indican cuándo se generaron y cuándo se borraron
 -- los archivos físicos. La política de retención + toggle de borrado vive en
--- la tabla configuracion_archivos (V9).
+-- la tabla configuracion_archivos (definida más abajo en esta misma migración).
 -- ============================================================================
 
 ALTER TABLE proceso_distribucion DROP COLUMN IF EXISTS pdf_etiquetas;
