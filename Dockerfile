@@ -24,8 +24,12 @@ FROM eclipse-temurin:21-jre-alpine
 # Instalamos fuentes y librerías gráficas para generar PDFs
 RUN apk add --no-cache fontconfig ttf-dejavu
 
-# Seguridad: Creamos un grupo y usuario limitado
-RUN addgroup -S spring && adduser -S spring -G spring
+# Seguridad: grupo + usuario limitado con UID/GID fijos. Fijarlos importa para
+# bind mounts: el directorio del host debe pertenecer a este UID para que el
+# backend pueda escribir (ver .env.example HOST_STORAGE_DIR). Alpine `adduser -S`
+# por defecto asigna UIDs del rango de sistema (100-999), inestable entre
+# rebuilds; el `-u 1000` lo deja determinístico.
+RUN addgroup -g 1000 -S spring && adduser -u 1000 -S spring -G spring
 
 # Carpetas y Permisos
 RUN mkdir -p /app/logs && chown -R spring:spring /app/logs
