@@ -30,6 +30,7 @@ spring:
     properties:
       hibernate:
         format_sql: ${APP_SHOW_SQL:false}
+        default_schema: ${APP_DB_SCHEMA:cartones}
     open-in-view: ${APP_OPEN_IN_VIEW:false}
 
   # Flyway — migraciones versionadas de BD
@@ -39,6 +40,9 @@ spring:
     baseline-on-migrate: true
     baseline-version: 0
     validate-on-migrate: true
+    # Schema dedicado para aislar las tablas de la app de Keycloak en Postgres compartido.
+    schemas: ${APP_DB_SCHEMA:cartones}
+    default-schema: ${APP_DB_SCHEMA:cartones}
 
   # Configuración de Jackson
   jackson:
@@ -58,6 +62,8 @@ spring:
 app:
   cors:
     origins: ${APP_CORS_ORIGINS:http://localhost:3000}
+  storage:
+    directory: ${APP_STORAGE_DIRECTORY:storage}
 
 # Configuración de Logging
 logging:
