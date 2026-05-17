@@ -16,6 +16,13 @@
     <version>0.0.1-SNAPSHOT</version>
 
     <properties>
+        <!-- release pisa el default 17 que Spring Boot parent hereda. Sin esto,
+             javac toma source/target=21 pero usa el bootclasspath de Java 17,
+             y APIs de 21 (Thread.ofVirtual, Executors.newVirtualThreadPerTaskExecutor)
+             fallan con "cannot find symbol". El runtime ya es JRE 21 (Dockerfile),
+             así que es seguro alinear el compile target. -->
+        <java.version>21</java.version>
+        <maven.compiler.release>21</maven.compiler.release>
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
