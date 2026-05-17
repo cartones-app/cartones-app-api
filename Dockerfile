@@ -31,8 +31,15 @@ RUN apk add --no-cache fontconfig ttf-dejavu
 # rebuilds; el `-u 1000` lo deja determinístico.
 RUN addgroup -g 1000 -S spring && adduser -u 1000 -S spring -G spring
 
-# Carpetas y Permisos
-RUN mkdir -p /app/logs && chown -R spring:spring /app/logs
+# Working directory de la app: todo lo del runtime vive bajo /cartones (jar,
+# logs, storage de PDFs montado como volumen). Mantiene el árbol del container
+# limpio bajo un único namespace del proyecto y los paths del compose alineados
+# con el contrato del Dockerfile.
+WORKDIR /cartones
+
+# Carpetas y permisos. /cartones/storage queda como mount point del volumen
+# (lo pre-creamos para que el chown aplique aunque el bind mount llegue después).
+RUN mkdir -p /cartones/logs /cartones/storage && chown -R spring:spring /cartones
 USER spring:spring
 
 # Copiamos el JAR compilado desde la etapa anterior

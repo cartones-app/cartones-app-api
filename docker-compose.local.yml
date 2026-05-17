@@ -18,7 +18,7 @@ services:
         ports:
             - "${PORT_BACKEND}:9001"
         volumes:
-            - ./storage:/var/cartones/storage
+            - ./storage:/cartones/storage
 
 networks:
     proxy:
