@@ -9,6 +9,10 @@
 #  - Redefinir la network `proxy` (que en VPS prod es la del stack nginx-proxy)
 #    como no-externa, para que el `up` no falle con "network not found". En dev
 #    local nadie más vive en esa red, queda vacía.
+#  - Agregar `keycloak-proxy` (network externa creada por el stack
+#    infra-keycloak local) para que el backend resuelva `keycloak:8080`. En
+#    prod NO se usa: Keycloak y el backend comparten la network `proxy` del
+#    nginx-proxy, así que el DNS interno funciona sin red extra.
 #  - Publicar el puerto del backend al host (en prod no se publica nada — el
 #    frontend y nginx-proxy lo alcanzan por DNS interno docker).
 # ============================================================================
@@ -19,8 +23,17 @@ services:
             - "${PORT_BACKEND}:9001"
         volumes:
             - ./storage:/cartones/storage
+        networks:
+            - default
+            - proxy
+            - keycloak-proxy
 
 networks:
     proxy:
         external: false
         name: cartones_backend_proxy_local
+    # Network externa creada por el stack de infra-keycloak (override local).
+    # El name fijo evita depender de cómo Compose prefije la red según el directorio.
+    keycloak-proxy:
+        external: true
+        name: infra_keycloak_proxy_local

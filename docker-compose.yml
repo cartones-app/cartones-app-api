@@ -23,6 +23,11 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
 
   backend:
     build:
@@ -46,9 +51,18 @@ services:
       # está definida pero vacía — sin el `:`, vacío llegaría al container
       # como string vacío y Spring usaría "" en lugar de defaultear.
       APP_STORAGE_DIRECTORY: ${APP_STORAGE_DIRECTORY:-/cartones/storage}
+      # Schema dedicado para tablas/Flyway. Default `cartones`; se respeta
+      # APP_DB_SCHEMA si se setea (ver application.yml hikari + jpa + flyway).
+      APP_DB_SCHEMA: ${APP_DB_SCHEMA:-cartones}
 
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB}
-      SPRING_CONFIG_IMPORT: "configtree:/run/secrets/"
+      # Credenciales por env vars (no `configtree:/run/secrets/`): los docker
+      # secrets se montan 0400 root:root y el backend corre como UID 1000 no-root
+      # → AccessDenied. El workflow genera estas vars desde
+      # /srv/cartones-secrets/db_*.txt en el VPS; en dev local, scripts/dev-up.sh
+      # las exporta desde secrets_store/*.txt.
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
 
       # Keycloak — corre externo a este compose (ver repo cartones-app/infra-keycloak).
       # issuer-uri es lo que el backend valida contra el claim `iss` del JWT;
@@ -76,25 +90,25 @@ services:
     networks:
       # Network del proyecto (db + backend, default).
       - default
-      # Network donde vive el container de Keycloak (definida en infra-keycloak).
-      # El backend usa el DNS interno `keycloak:8080` para bajar las public keys
-      # del JWK set. issuer-uri queda como `http://localhost:8080/...` porque
-      # eso es lo que dice el claim `iss` del JWT (Spring lo valida por string).
-      - keycloak-proxy
-      # Network del stack nginx-proxy en el VPS prod. El frontend (en la misma
-      # network) resuelve `backend:9001` por DNS interno docker para sus
-      # rewrites de /api-proxy/* (ver next.config.ts). En dev local NO existe
-      # esta network — el override docker-compose.local.yml la redefine como
-      # no-externa para no romper el `up` (queda como red vacía sin uso real,
-      # porque en dev el frontend usa network_mode: host).
+      # Network del stack nginx-proxy en el VPS prod. En esa misma network vive
+      # Keycloak (joinea `proxy` además de su `keycloak-internal` privada), así
+      # que el backend resuelve `keycloak:8080` por acá sin necesidad de una
+      # network separada. El override docker-compose.local.yml redefine `proxy`
+      # como no-externa y agrega `keycloak-proxy` para apuntar a la red de
+      # infra-keycloak local.
       - proxy
-    secrets:
-      - source: db_user
-        target: spring.datasource.username
-        mode: 0444
-      - source: db_password
-        target: spring.datasource.password
-        mode: 0444
+    # Healthcheck por /actuator/health
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9001/actuator/health | grep -q '\"status\":\"UP\"'"]
+      interval: 20s
+      timeout: 5s
+      retries: 6
+      start_period: 60s
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "10"
 
 volumes:
   postgres_data:
@@ -107,13 +121,8 @@ secrets:
 
 networks:
   default:
-  # Network externa creada por el stack de infra-keycloak (override local).
-  # El name fijo evita depender de cómo Compose prefije la red según el directorio.
-  keycloak-proxy:
-    external: true
-    name: infra_keycloak_proxy_local
   # Network externa creada por el stack nginx-proxy en el VPS prod (compartida
-  # con el frontend). En dev local NO existe — el override docker-compose.local.yml
-  # la redefine como no-externa.
+  # con el frontend Y con Keycloak). En dev local NO existe — el override
+  # docker-compose.local.yml la redefine como no-externa.
   proxy:
     external: true

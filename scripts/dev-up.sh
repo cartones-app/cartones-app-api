@@ -56,4 +56,20 @@ EOF
   echo "infra-keycloak arriba. Continuando con backend..."
 fi
 
+# Inyectar credenciales DB como env vars. El compose abandonó
+# `configtree:/run/secrets/` (los secrets se montan 0400 root:root y el
+# backend corre como UID 1000 → AccessDenied), así que ahora lee
+# SPRING_DATASOURCE_USERNAME / PASSWORD del environment. En el VPS los
+# inyecta el workflow desde /srv/cartones-secrets/; en dev local los
+# tomamos de secrets_store/*.txt (mismos archivos que usa el container
+# `db` para `POSTGRES_USER_FILE`).
+if [[ -f secrets_store/db_user.txt && -f secrets_store/db_password.txt ]]; then
+  export SPRING_DATASOURCE_USERNAME="$(cat secrets_store/db_user.txt)"
+  export SPRING_DATASOURCE_PASSWORD="$(cat secrets_store/db_password.txt)"
+else
+  echo "ERROR: faltan secrets_store/db_user.txt o secrets_store/db_password.txt" >&2
+  echo "Crealos con las credenciales del Postgres local (ver README)." >&2
+  exit 1
+fi
+
 exec docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build "$@"
