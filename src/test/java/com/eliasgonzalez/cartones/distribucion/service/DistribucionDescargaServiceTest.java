@@ -3,6 +3,8 @@ package com.eliasgonzalez.cartones.distribucion.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
@@ -20,6 +22,7 @@ import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 
 import com.eliasgonzalez.cartones.common.exception.ResourceNotFoundException;
+import com.eliasgonzalez.cartones.common.exception.UnprocessableEntityException;
 import com.eliasgonzalez.cartones.distribucion.component.SimulacionCache;
 import com.eliasgonzalez.cartones.distribucion.domain.ProcesoDistribucion;
 import com.eliasgonzalez.cartones.distribucion.domain.enums.EstadoEnum;
@@ -150,5 +153,50 @@ class DistribucionDescargaServiceTest {
 
         assertThatThrownBy(() -> service.obtenerEtiquetas("p-sin-archivo"))
                 .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void abandonarProceso_desdePendiente_marcaAbandonadoYPersiste() {
+        ProcesoDistribucion proceso = ProcesoDistribucion.builder()
+                .procesoId("p-ab")
+                .estado(EstadoEnum.PENDIENTE.getValue())
+                .build();
+        when(listadoService.verificarOwnership("p-ab")).thenReturn(proceso);
+        when(procesoRepo.save(proceso)).thenReturn(proceso);
+
+        service.abandonarProceso("p-ab");
+
+        assertThat(proceso.getEstado()).isEqualTo(EstadoEnum.ABANDONADO.getValue());
+        verify(procesoRepo).save(proceso);
+    }
+
+    @Test
+    void abandonarProceso_yaAbandonado_esNoOp() {
+        // Fire-and-forget desde el front: si la red duplica el request, la
+        // segunda llamada no debe romper ni tocar la DB.
+        ProcesoDistribucion proceso = ProcesoDistribucion.builder()
+                .procesoId("p-ab2")
+                .estado(EstadoEnum.ABANDONADO.getValue())
+                .build();
+        when(listadoService.verificarOwnership("p-ab2")).thenReturn(proceso);
+
+        service.abandonarProceso("p-ab2");
+
+        assertThat(proceso.getEstado()).isEqualTo(EstadoEnum.ABANDONADO.getValue());
+        verify(procesoRepo, never()).save(proceso);
+    }
+
+    @Test
+    void abandonarProceso_completado_lanza422() {
+        ProcesoDistribucion proceso = ProcesoDistribucion.builder()
+                .procesoId("p-comp")
+                .estado(EstadoEnum.COMPLETADO.getValue())
+                .build();
+        when(listadoService.verificarOwnership("p-comp")).thenReturn(proceso);
+
+        assertThatThrownBy(() -> service.abandonarProceso("p-comp"))
+                .isInstanceOf(UnprocessableEntityException.class);
+        assertThat(proceso.getEstado()).isEqualTo(EstadoEnum.COMPLETADO.getValue());
+        verify(procesoRepo, never()).save(proceso);
     }
 }

@@ -148,7 +148,7 @@ public class Layout4PorHojaRenderer implements EtiquetaLayoutRenderer {
 
         cb.setFontAndSize(fBold, 9);
         cb.showTextAligned(Element.ALIGN_CENTER,
-                "TOTAL ------------> (" + (total != null ? total : "0") + ")",
+                "TOTAL ---------> (" + (total != null ? total : "0") + ")",
                 xCentro, curY, 0);
 
         curY -= 14;

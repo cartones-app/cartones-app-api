@@ -140,7 +140,7 @@ public class Layout3PorHojaRenderer implements EtiquetaLayoutRenderer {
         // 3. Total
         cb.setFontAndSize(fBold, 10);
         cb.showTextAligned(Element.ALIGN_CENTER,
-                "TOTAL ------------> (" + (total != null ? total : "0") + ")",
+                "TOTAL ---------> (" + (total != null ? total : "0") + ")",
                 xCentro, curY, 0);
 
         curY -= 25;

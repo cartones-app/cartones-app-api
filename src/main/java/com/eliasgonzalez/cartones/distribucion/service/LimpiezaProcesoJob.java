@@ -16,6 +16,7 @@ import com.eliasgonzalez.cartones.common.logging.LogSanitizer;
 import com.eliasgonzalez.cartones.distribucion.configuracion.domain.ConfiguracionArchivos;
 import com.eliasgonzalez.cartones.distribucion.configuracion.service.ConfiguracionArchivosService;
 import com.eliasgonzalez.cartones.distribucion.domain.ProcesoDistribucion;
+import com.eliasgonzalez.cartones.distribucion.domain.enums.EstadoEnum;
 import com.eliasgonzalez.cartones.distribucion.repository.ProcesoDistribucionRepository;
 
 import io.micrometer.core.instrument.Counter;
@@ -37,26 +38,33 @@ import lombok.extern.slf4j.Slf4j;
 public class LimpiezaProcesoJob {
 
     private final Path storageDir;
+    private final long abandonoDias;
     private final ConfiguracionArchivosService configuracionService;
     private final ProcesoDistribucionRepository procesoRepo;
     private final Counter runsCounter;
     private final Counter deletedCounter;
+    private final Counter abandonedCounter;
     private final Counter errorsCounter;
     private final Timer durationTimer;
 
     public LimpiezaProcesoJob(
             @Value("${app.storage.directory:storage}") String storageDirectory,
+            @Value("${app.proceso.abandono-dias:30}") long abandonoDias,
             ConfiguracionArchivosService configuracionService,
             ProcesoDistribucionRepository procesoRepo,
             MeterRegistry registry) {
         this.storageDir = Paths.get(storageDirectory);
+        this.abandonoDias = abandonoDias;
         this.configuracionService = configuracionService;
         this.procesoRepo = procesoRepo;
         this.runsCounter = Counter.builder("cartones.cleanup.storage.runs")
-                .description("Total de ejecuciones del cron de limpieza de storage")
+                .description("Total de ejecuciones del cron de limpieza")
                 .register(registry);
         this.deletedCounter = Counter.builder("cartones.cleanup.storage.deleted")
                 .description("Total acumulado de procesos con archivos borrados")
+                .register(registry);
+        this.abandonedCounter = Counter.builder("cartones.cleanup.storage.abandoned")
+                .description("Total acumulado de procesos marcados como ABANDONADO por inactividad")
                 .register(registry);
         this.errorsCounter = Counter.builder("cartones.cleanup.storage.errors")
                 .description("Total de errores durante limpieza (path inválido, fallo de save y/o IO en delete)")
@@ -73,6 +81,12 @@ public class LimpiezaProcesoJob {
     }
 
     void limpiar() {
+        // Paso 1: marcar como ABANDONADO los procesos en PENDIENTE/SIMULADO
+        // con `created_at` mayor a `abandonoDias`. Se ejecuta siempre,
+        // independiente del flag `eliminacionActiva` — esa flag aplica al
+        // borrado de FS, no al estado del proceso.
+        marcarProcesosAbandonados();
+
         ConfiguracionArchivos config = configuracionService.obtener();
 
         if (!config.isEliminacionActiva()) {
@@ -132,6 +146,44 @@ public class LimpiezaProcesoJob {
         errorsCounter.increment(errores);
         log.info("Limpieza trimestral completada: {} procesos marcados como borrados, {} errores (puede solaparse con borrados si un save OK fue seguido de IO error).",
                 borrados, errores);
+    }
+
+    /**
+     * Defensa secundaria: el front llama el endpoint /abandonar en cada
+     * reset, así que la mayoría de los procesos descartados ya entran como
+     * ABANDONADO. Este paso cubre el caso del usuario que cierra el tab
+     * sin reset — tras `abandonoDias` días, marcamos los huérfanos.
+     *
+     * No toca COMPLETADO ni ABANDONADO (transición ya hecha). Idempotente.
+     */
+    private void marcarProcesosAbandonados() {
+        LocalDateTime umbral = LocalDateTime.now().minusDays(abandonoDias);
+        List<ProcesoDistribucion> huerfanos = procesoRepo.findByEstadoInAndCreatedAtBefore(
+                List.of(EstadoEnum.PENDIENTE.getValue(), EstadoEnum.SIMULADO.getValue()),
+                umbral);
+        if (huerfanos.isEmpty()) {
+            log.info("Limpieza: 0 procesos huérfanos para marcar como ABANDONADO (umbral={} días).",
+                    abandonoDias);
+            return;
+        }
+
+        int abandonados = 0;
+        int errores = 0;
+        for (ProcesoDistribucion proceso : huerfanos) {
+            try {
+                proceso.setEstado(EstadoEnum.ABANDONADO.getValue());
+                procesoRepo.save(proceso);
+                abandonados++;
+            } catch (RuntimeException e) {
+                errores++;
+                log.warn("No se pudo marcar abandonado el proceso {}: {}",
+                        LogSanitizer.safe(proceso.getProcesoId()), e.getMessage());
+            }
+        }
+        abandonedCounter.increment(abandonados);
+        errorsCounter.increment(errores);
+        log.info("Limpieza: {} procesos marcados como ABANDONADO ({} errores).",
+                abandonados, errores);
     }
 
     /**

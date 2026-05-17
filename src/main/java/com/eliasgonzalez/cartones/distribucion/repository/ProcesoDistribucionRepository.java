@@ -41,4 +41,14 @@ public interface ProcesoDistribucionRepository extends JpaRepository<ProcesoDist
 
     List<ProcesoDistribucion> findByArchivosGeneradosEnNotNullAndArchivosGeneradosEnBeforeAndArchivosBorradosEnIsNull(
             LocalDateTime umbral);
+
+    /**
+     * Procesos en alguno de los estados pasados (típicamente
+     * {@code "pendiente"} y {@code "simulado"}) creados antes del umbral.
+     * Usado por el job de limpieza para marcar como ABANDONADO los procesos
+     * que quedaron en estados intermedios y nunca se completaron ni se
+     * descartaron explícitamente desde el front.
+     */
+    List<ProcesoDistribucion> findByEstadoInAndCreatedAtBefore(
+            List<String> estados, LocalDateTime umbral);
 }
