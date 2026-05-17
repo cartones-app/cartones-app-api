@@ -27,6 +27,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
 @Service
@@ -41,6 +43,20 @@ public class GeneradorPdfService implements IGeneradorPdfService {
 
     private static final String ETIQUETAS = "etiquetas";
     private static final String RESUMEN = "resumen";
+
+    /**
+     * Executor de virtual threads dedicado a la generación paralela de PDFs.
+     * Sin este executor explícito, `CompletableFuture.supplyAsync(supplier)`
+     * caería en `ForkJoinPool.commonPool()` (platform threads, compartido con
+     * el resto del JVM). El stack del proyecto ya corre con virtual threads
+     * activados (`AsyncConfig`); este executor mantiene la consistencia.
+     *
+     * Usamos `newThreadPerTaskExecutor(Thread.ofVirtual().factory())` en lugar
+     * de `newVirtualThreadPerTaskExecutor()` por consistencia con el resto del
+     * codebase que ya usa el patrón explícito de Thread.Builder.
+     */
+    private static final Executor PDF_GEN_EXECUTOR =
+            Executors.newThreadPerTaskExecutor(Thread.ofVirtual().name("pdf-gen-", 0).factory());
 
     /**
      * Crea el directorio raíz de procesos en el constructor. Si el volumen no
@@ -207,12 +223,12 @@ public class GeneradorPdfService implements IGeneradorPdfService {
             return pdfEtiquetasService.generarEtiquetas(
                     etiquetasMapeado, fechaSorteoSenete, fechaSorteoTelebingo,
                     prefs.layout(), prefs.orden());
-        });
+        }, PDF_GEN_EXECUTOR);
 
         CompletableFuture<byte[]> futureResumen = CompletableFuture.supplyAsync(() -> {
             log.debug("Generando PDF de resumen en thread: {}", Thread.currentThread());
             return pdfResumenService.generarResumen(resumenMapeado, fechaSorteoSenete, fechaSorteoTelebingo);
-        });
+        }, PDF_GEN_EXECUTOR);
 
         byte[] etiquetas;
         byte[] resumen;

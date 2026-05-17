@@ -59,7 +59,7 @@ public class LimpiezaProcesoJob {
                 .description("Total acumulado de procesos con archivos borrados")
                 .register(registry);
         this.errorsCounter = Counter.builder("cartones.cleanup.storage.errors")
-                .description("Total de errores de IO durante limpieza")
+                .description("Total de errores durante limpieza (path inválido, fallo de save y/o IO en delete)")
                 .register(registry);
         this.durationTimer = Timer.builder("cartones.cleanup.storage.duration")
                 .description("Duración de cada ejecución de limpieza")
@@ -130,7 +130,7 @@ public class LimpiezaProcesoJob {
 
         deletedCounter.increment(borrados);
         errorsCounter.increment(errores);
-        log.info("Limpieza trimestral completada: {} procesos marcados como borrados, {} errores de IO.",
+        log.info("Limpieza trimestral completada: {} procesos marcados como borrados, {} errores (puede solaparse con borrados si un save OK fue seguido de IO error).",
                 borrados, errores);
     }
 
