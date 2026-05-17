@@ -85,6 +85,42 @@ class ProcesoEstadoServiceTest {
                 .hasMessageContaining("pendiente");
     }
 
+    @Test
+    void aAbandonado_desdePendiente_marcaAbandonado() {
+        ProcesoDistribucion p = procesoEnEstado(EstadoEnum.PENDIENTE);
+        boolean cambio = ProcesoEstadoService.aAbandonado("p-1", p);
+        assertThat(cambio).isTrue();
+        assertThat(p.getEstado()).isEqualTo(EstadoEnum.ABANDONADO.getValue());
+    }
+
+    @Test
+    void aAbandonado_desdeSimulado_marcaAbandonado() {
+        ProcesoDistribucion p = procesoEnEstado(EstadoEnum.SIMULADO);
+        assertThat(ProcesoEstadoService.aAbandonado("p-1", p)).isTrue();
+        assertThat(p.getEstado()).isEqualTo(EstadoEnum.ABANDONADO.getValue());
+    }
+
+    @Test
+    void aAbandonado_idempotente_yaAbandonadoEsNoOp() {
+        // Repetir la transición no debe lanzar — el front llama fire-and-forget
+        // y la red puede entregar el request dos veces.
+        ProcesoDistribucion p = procesoEnEstado(EstadoEnum.ABANDONADO);
+        boolean cambio = ProcesoEstadoService.aAbandonado("p-1", p);
+        assertThat(cambio).isFalse();
+        assertThat(p.getEstado()).isEqualTo(EstadoEnum.ABANDONADO.getValue());
+    }
+
+    @Test
+    void aAbandonado_lanzaSiYaEstaCompletado() {
+        // Un proceso terminado con éxito no debe poder volver a estado terminal
+        // distinto — eso oculta su valor histórico.
+        ProcesoDistribucion p = procesoEnEstado(EstadoEnum.COMPLETADO);
+        assertThatThrownBy(() -> ProcesoEstadoService.aAbandonado("p-1", p))
+                .isInstanceOf(UnprocessableEntityException.class)
+                .hasMessageContaining("completado");
+        assertThat(p.getEstado()).isEqualTo(EstadoEnum.COMPLETADO.getValue());
+    }
+
     private static ProcesoDistribucion procesoEnEstado(EstadoEnum estado) {
         ProcesoDistribucion p = new ProcesoDistribucion();
         p.setEstado(estado.getValue());

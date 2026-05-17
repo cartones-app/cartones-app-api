@@ -62,6 +62,21 @@ public class DistribucionDescargaService {
     }
 
     /**
+     * Marca el proceso como ABANDONADO si pertenece al usuario. Idempotente:
+     * si ya estaba abandonado el método no hace nada. Si el proceso ya está
+     * COMPLETADO, {@link ProcesoEstadoService#aAbandonado} lanza 422 — el
+     * caller (el front en `reset()`) debería ignorar esa respuesta porque
+     * un proceso ya terminado no necesita ser limpiado.
+     */
+    @Transactional
+    public void abandonarProceso(String procesoId) {
+        ProcesoDistribucion proceso = listadoService.verificarOwnership(procesoId);
+        if (ProcesoEstadoService.aAbandonado(procesoId, proceso)) {
+            procesoDistribucionRepo.save(proceso);
+        }
+    }
+
+    /**
      * Devuelve el archivo de etiquetas para descarga.
      * Verifica ownership y disponibilidad del archivo.
      */

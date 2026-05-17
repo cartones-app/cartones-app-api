@@ -63,6 +63,18 @@ public class DistribucionController {
         return ResponseEntity.ok(new ArchivosGeneradosDTO(proceso.getProcesoId(), proceso.getArchivosGeneradosEn()));
     }
 
+    /**
+     * Marca el proceso como ABANDONADO. Idempotente — el frontend lo llama
+     * fire-and-forget en el flujo de "Reiniciar / descartar proceso".
+     * Devuelve 204 sin body; el front no necesita info del lado del server.
+     */
+    @PostMapping("/{procesoId}/abandonar")
+    public ResponseEntity<Void> abandonarProceso(@PathVariable String procesoId) {
+        log.debug("POST /api/distribuciones/{}/abandonar", LogSanitizer.safe(procesoId));
+        gestionArchivoPdf.abandonarProceso(procesoId);
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/{procesoId}/etiquetas.pdf")
     public ResponseEntity<Resource> descargarEtiquetas(@PathVariable String procesoId) {
         log.debug("GET /api/distribuciones/{}/etiquetas.pdf", LogSanitizer.safe(procesoId));
