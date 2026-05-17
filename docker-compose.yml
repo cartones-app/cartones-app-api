@@ -39,6 +39,10 @@ services:
       APP_LOG_LEVEL: ${LOG_LEVEL}
       APP_OPEN_IN_VIEW: ${OPEN_IN_VIEW}
       APP_CORS_ORIGINS: ${FRONTEND_URL}
+      # Directorio DENTRO del container donde escribir los PDFs. Tiene que
+      # coincidir con el mount point del bind mount de `volumes:` (sino el
+      # backend escribe a un path efímero del container).
+      APP_STORAGE_DIRECTORY: ${APP_STORAGE_DIRECTORY}
 
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB}
       SPRING_CONFIG_IMPORT: "configtree:/run/secrets/"
@@ -51,6 +55,12 @@ services:
       KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI}
       KEYCLOAK_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI}
 
+    volumes:
+      # Bind mount a un directorio físico del host (no named volume) para que
+      # los archivos generados (PDFs) sean inspeccionables/backupeables desde
+      # afuera de Docker. El override docker-compose.local.yml lo apunta a
+      # ./storage para dev local; en VPS prod apunta a /var/cartones/storage.
+      - ${HOST_STORAGE_DIR:-/var/cartones/storage}:/var/cartones/storage
     # Sin `ports:` en el base: en VPS prod el backend NO publica nada al host
     # — frontend y nginx-proxy lo alcanzan por DNS interno docker (`backend:9001`)
     # y nadie de afuera del VPS debería poder conectar directo. El override
