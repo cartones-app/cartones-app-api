@@ -1,6 +1,6 @@
 # Cartones App — Backend API
 
-Sistema de gestión para vendedores y cartones de bingo. API REST en Spring Boot que procesa archivos Excel, simula la distribución de cartones (Senete y Telebingo) y genera reportes PDF comprimidos en ZIP.
+Sistema de gestión para vendedores y cartones de bingo. API REST en Spring Boot que procesa archivos Excel, simula la distribución de cartones (Senete y Telebingo) y genera reportes PDF.
 
 **Autor:** Elías González
 
@@ -15,7 +15,7 @@ Sistema de gestión para vendedores y cartones de bingo. API REST en Spring Boot
 | Autenticación | Keycloak 26 (OAuth2 / JWT) |
 | Excel | Apache POI 5.2.5 |
 | PDFs | OpenPDF 1.3.30 |
-| Rate limiting | Bucket4j 8.10 (in-memory, uploads) |
+| Rate limiting | Bucket4j 8.10 (in-memory, uploads + compute) |
 | Migraciones | Flyway |
 | Contenedores | Docker / Docker Compose |
 | Staging | Railway (backend + Postgres + Keycloak dedicados) |
@@ -31,8 +31,8 @@ Sistema de gestión para vendedores y cartones de bingo. API REST en Spring Boot
 |------|----------|------|-----------|
 | `master` | Producción | VPS (`cartones.eliasg.uk`) | Push → workflow `deploy-vps.yml` → self-hosted runner ARM64 |
 | `develop` | Staging | Railway (`backend-staging-de76.up.railway.app`) | Push → CI workflows verdes → Railway redeploya (`Wait for CI` activado) |
-| `next` | Integración | — | Solo corre CI + CodeQL; sprints / features mergean acá primero |
-| `feat/*`, `chore/*`, `fix/*` | Trabajo | — | mergean a `next` vía PR |
+| `next` | Integración (rama de trabajo) | — | Solo corre CI + CodeQL; features mergean acá primero, luego promueven a `develop` |
+| `feat/*`, `chore/*`, `fix/*` | Trabajo puntual | — | mergean a `next` vía PR |
 
 `master` lleva tags futuros (`v1.x.x`); `develop` y `next` siempre `-SNAPSHOT`.
 
@@ -201,7 +201,8 @@ curl -H "Authorization: Bearer <TOKEN>" http://localhost:9001/api/vendedores/<pr
 | `PORT_BACKEND` | `9001` | Puerto del backend expuesto en host |
 | `KEYCLOAK_ISSUER_URI` | `http://localhost:8080/realms/cartones` | URL del realm (claim `iss` del JWT). Keycloak vive en repo `cartones-app/infra-keycloak`. |
 | `KEYCLOAK_JWK_SET_URI` | `http://keycloak:8080/realms/cartones/protocol/openid-connect/certs` | Endpoint JWKS para validar firmas. En dev usa el DNS interno del docker network compartido con `infra-keycloak` (ver "Dependencia inter-repo"). |
-| `APP_UPLOADS_RATE_LIMIT_RPM` | `10` | Rate limit por usuario en endpoints de upload |
+| `APP_UPLOADS_RATE_LIMIT_RPM` | `10` | Rate limit por usuario en endpoints de upload y compute (simular, archivos, exportar) |
+| `APP_PROCESO_ABANDONO_DIAS` | `30` | Días sin actividad tras los cuales el job `LimpiezaProcesoJob.marcarProcesosAbandonados` marca el proceso como `ABANDONADO` |
 
 ### Railway (staging)
 
@@ -220,15 +221,24 @@ Variables del servicio `backend` (referencias a otros servicios via `${{servicio
 | `SPRING_DATASOURCE_URL` | `jdbc:postgresql://${{postgres.RAILWAY_PRIVATE_DOMAIN}}:5432/${{postgres.POSTGRES_DB}}` |
 | `SPRING_DATASOURCE_USERNAME` | `${{postgres.POSTGRES_USER}}` |
 | `SPRING_DATASOURCE_PASSWORD` | `${{postgres.POSTGRES_PASSWORD}}` |
+| `FRONTEND_URL` | `https://cartones-app-web.vercel.app` |
 | `APP_CORS_ORIGINS` | `https://cartones-app-web.vercel.app` |
-| `APP_DDL_AUTO` | `update` |
+| `APP_DDL_AUTO` | `validate` (Flyway maneja el schema en staging) |
 | `JAVA_TOOL_OPTIONS` | `-XX:MaxRAMPercentage=75.0` |
 | `KEYCLOAK_ISSUER_URI` | `https://keycloak-staging-085a.up.railway.app/realms/cartones` (público — coincide con claim `iss` del JWT) |
 | `KEYCLOAK_JWK_SET_URI` | `http://${{keycloak.RAILWAY_PRIVATE_DOMAIN}}:8080/realms/cartones/protocol/openid-connect/certs` (red privada Railway, sin pasar por edge) |
+| `SERVER_MAX_HTTP_REQUEST_HEADER_SIZE` | `32KB` — redundante: `application.yml` ya trae el default. Lo dejamos seteado en Railway porque sin él el Tomcat default de 8KB respondía 400 con JWT + cookies + propaganda de proxies. |
 
-### VPS (producción, configurado vía GitHub Variables)
+### VPS (producción, configurado vía GitHub Variables + Secrets)
 
-El workflow `.github/workflows/deploy-vps.yml` arma el `.env` del compose en cada deploy combinando **Variables del repo** + **secretos de DB en `/srv/cartones-secrets/`** del host.
+El workflow `.github/workflows/deploy-vps.yml` (commit `6325806`) arma el `.env` del compose en cada deploy combinando **Variables del repo** + **GitHub Secrets** del usuario/password de la DB. Antes usábamos `spring.config.import=configtree:/run/secrets/`; ahora las credenciales van como env vars (`SPRING_DATASOURCE_USERNAME` / `_PASSWORD`) y los secretos en `/srv/cartones-secrets/` del host quedaron deprecated.
+
+Preflight del workflow (falla rápido si algo no está OK):
+
+- Verifica que el container `keycloak` esté `running` en el host.
+- Verifica que `/opt/cartones/storage` exista en el host y sea owner `1000:1000` (UID del JRE en la imagen). Sin esto los PDFs no se pueden escribir.
+
+Healthcheck post-deploy: `GET /actuator/health` con reintentos.
 
 GitHub `Settings → Secrets and variables → Actions` (Variables, no sensibles):
 
@@ -236,19 +246,40 @@ GitHub `Settings → Secrets and variables → Actions` (Variables, no sensibles
 |----------|---------|-------------|
 | `FRONTEND_URL` | `https://rgq-cartones.eliasg.uk,https://rgq-web.vercel.app` | Lista de orígenes CORS (split por coma) |
 | `POSTGRES_DB` | `cartones_prod` | Nombre de la base de datos |
-| `HEALTH_URL` | `https://cartones.eliasg.uk/api/vendedores/test` | (Opcional) smoke test post-deploy |
+| `HEALTH_URL` | `https://cartones.eliasg.uk/actuator/health` | (Opcional) smoke test público post-deploy |
 
-Secretos de DB en el VPS: `/srv/cartones-secrets/db_user.txt` y `db_password.txt` (`chmod 600`, owner del runner).
+Credenciales de DB como GitHub Secrets del repo (no en el host): `POSTGRES_USER`, `POSTGRES_PASSWORD`. El workflow las inyecta como `SPRING_DATASOURCE_USERNAME` / `_PASSWORD` en el `.env` del compose.
 
 Variables que el workflow inyecta automáticamente con valores fijos para prod:
 
 | Variable | Valor en prod |
 |----------|--------------|
 | `APP_PROFILE` | `prod` |
-| `DB_DDL_AUTO` | `update` (master, código sin Flyway) o `validate` (develop, con Flyway) |
+| `DB_DDL_AUTO` | `validate` (Flyway maneja el schema) |
 | `LOG_LEVEL` | `INFO` |
-| `SPRING_DATASOURCE_USERNAME` / `_PASSWORD` | Leídas de `/srv/cartones-secrets/*` |
-| `KEYCLOAK_ISSUER_URI` / `_JWK_SET_URI` | (Cuando se promueva develop) URL pública del Keycloak en VPS |
+| `SPRING_DATASOURCE_USERNAME` / `_PASSWORD` | Desde GitHub Secrets `POSTGRES_USER` / `POSTGRES_PASSWORD` |
+| `KEYCLOAK_ISSUER_URI` / `_JWK_SET_URI` | URL del Keycloak en el VPS (container `keycloak` en la network `proxy`) |
+
+---
+
+## Persistencia
+
+- **Schema dedicado `cartones`** en Postgres. Flyway corre sobre ese schema y Hikari + JPA lo fuerzan vía `currentSchema` en la JDBC URL y `spring.jpa.properties.hibernate.default_schema=cartones`. Convivir con otros stacks en la misma DB es seguro.
+- **PDFs en filesystem, no en la DB.** El path se configura en `app.storage.base-path` (default `/cartones/storage`). En el VPS es un bind mount del host (`/opt/cartones/storage`, owner `1000:1000` — UID del JRE en la imagen). La migración de BLOB a filesystem ya se aplicó: las entidades guardan solo paths/metadata.
+- **Ciclo de vida de procesos.** `EstadoEnum` incluye `ABANDONADO`. El frontend dispara `POST /api/distribuciones/{id}/abandonar` (fire-and-forget) cuando el usuario resetea el flujo. Además, `LimpiezaProcesoJob.marcarProcesosAbandonados` corre periódicamente y marca como abandonados los procesos sin actividad durante `APP_PROCESO_ABANDONO_DIAS` días (default 30).
+
+## Rate limiting
+
+Bucket4j in-memory por usuario (`sub` del JWT). Aplica a:
+
+- **Upload**: `POST /api/vendedores/carga`, `POST /api/ruta/carga`.
+- **Compute**: `POST /api/distribuciones/{id}/simular`, descarga de PDFs (`/api/distribuciones/{id}/pdfs`), `POST /api/ruta/{sesionId}/exportar`.
+
+Cuota controlada por `APP_UPLOADS_RATE_LIMIT_RPM`.
+
+## Configuración HTTP
+
+`server.max-http-request-header-size: 32KB` está fijado en `application.yml`. El default de Tomcat (8KB) no alcanza para `Authorization: Bearer <JWT>` + cookies de sesión + headers de propaganda de proxies (Cloudflare, Railway edge) — en staging Railway respondía 400 antes del fix.
 
 ---
 
@@ -269,7 +300,8 @@ Todos con prefijo `/api`. Requieren token JWT excepto donde se indica.
 |--------|------|-------------|-----------|
 | `GET` | `/api/distribuciones` | Lista los procesos creados por el usuario actual (filtrado por `sub` del JWT) | `DISTRIBUIDOR` |
 | `POST` | `/api/distribuciones/{procesoId}/simular` | Simula distribución de cartones | `DISTRIBUIDOR` |
-| `GET` | `/api/distribuciones/{procesoId}/pdfs` | Descarga ZIP con PDFs (valida ownership: 404 si no es dueño) | `DISTRIBUIDOR` |
+| `GET` | `/api/distribuciones/{procesoId}/pdfs` | Descarga PDFs (valida ownership: 404 si no es dueño). Se sirven los dos PDFs por separado, no comprimidos. | `DISTRIBUIDOR` |
+| `POST` | `/api/distribuciones/{procesoId}/abandonar` | Marca el proceso como `ABANDONADO` (fire-and-forget desde el frontend al resetear el flujo) | `DISTRIBUIDOR` |
 
 ### Ruta (recorrido de cobro)
 
@@ -284,7 +316,7 @@ Todos con prefijo `/api`. Requieren token JWT excepto donde se indica.
 | Método | Ruta | Descripción | Rol |
 |--------|------|-------------|-----|
 | `GET` | `/api/admin/distribuciones` | Lista todos los procesos del sistema (vista global) | `ADMIN` |
-| `GET` | `/api/admin/distribuciones/{procesoId}/pdfs` | Descarga ZIP de cualquier proceso (sin ownership) | `ADMIN` |
+| `GET` | `/api/admin/distribuciones/{procesoId}/pdfs` | Descarga PDFs de cualquier proceso (sin ownership) | `ADMIN` |
 
 ### Admin — Sesiones de Ruta
 
@@ -338,15 +370,15 @@ mvn test -Dtest=NombreDeClase
 Push a `master` dispara `.github/workflows/deploy-vps.yml`:
 
 1. Self-hosted runner en el VPS (`cartones-runner`, labels `[self-hosted, linux, arm64]`).
-2. Checkout, copia secretos de DB desde `/srv/cartones-secrets/`.
-3. Genera `.env` desde GitHub Variables.
+2. Preflight: container `keycloak` running + `/opt/cartones/storage` owner `1000:1000`.
+3. Genera `.env` desde GitHub Variables + Secrets (DB user/password como env vars, no más `configtree`).
 4. `docker compose up -d --build` con BuildKit cache `--mount=type=cache,target=/root/.m2` (preserva `~/.m2` entre builds).
-5. Espera health del contenedor.
-6. Smoke test público vía `HEALTH_URL` con reintentos (cubre toda la cadena Cloudflare → tunnel → nginx → backend).
+5. Healthcheck contra `/actuator/health` con reintentos.
+6. (Opcional) Smoke test público vía `HEALTH_URL` (cubre toda la cadena Cloudflare → tunnel → nginx → backend).
 7. Prune de imágenes viejas.
 
 Topología en VPS: `Internet → Cloudflare (cartones.eliasg.uk) → cloudflared tunnel → nginx-proxy → cartones_backend:9001`.
-El backend joinea la network externa `proxy` (creada por `~/infra-claude/vps`) y no expone puertos al host.
+El backend joinea la network externa `proxy` (creada por `~/infra-claude/vps`) y no expone puertos al host. El bind mount `/opt/cartones/storage` (UID 1000) del host es donde la app persiste los PDFs.
 
 ### Staging — Railway (`develop`)
 
