@@ -2,6 +2,15 @@
 # Configuración Base - Cartones Backend
 # ===========================================
 
+server:
+  # Headers del request (cookies + JWT + propaganda de proxies reversos) pueden
+  # superar fácil el default 8KB de Tomcat cuando el JWT viaja por Cloudflare/
+  # Vercel/Railway y la cookie de sesión de NextAuth tiene los claims cifrados.
+  # 32KB deja margen sobrado sin riesgo real de DoS (un single connector con
+  # threads virtuales no se ve afectado por buffers de este tamaño).
+  # Sin esto, Tomcat corta al parsear y devuelve 400 con body vacío.
+  max-http-request-header-size: 32KB
+
 spring:
   application:
     name: cartones-backend
