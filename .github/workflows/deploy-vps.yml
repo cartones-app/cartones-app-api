@@ -3,25 +3,28 @@ name: Deploy to VPS (prod)
 # Despliega a producción cuando se pushea a master.
 # El runner self-hosted (cartones-runner) corre en el VPS personal.
 #
-# Topología del VPS (ver /data/notas/vps-nginx-cloudflare.md):
+# Topología del VPS:
 #   Internet → Cloudflare → tunnel → nginx-proxy → cartones_backend
-# El backend NO expone puertos al host. Joinea la network externa "proxy"
-# que crea ~/infra-claude/vps. Cloudflare DNS y nginx config se manejan
+# El backend NO expone puertos al host. Joinea la network externa "proxy". 
+# En esa misma network vive Keycloak, así que el DNS interno `keycloak:8080` 
+# funciona sin red extra. Cloudflare DNS y nginx config se manejan 
 # manualmente la primera vez.
 #
-# Pre-requisitos en el VPS (una sola vez):
-#   1. Runner registrado a nivel org cartones-app y corriendo (systemd).
-#   2. Usuario del runner en grupo `docker`.
-#   3. Network externa "proxy" creada por ~/infra-claude/vps (ya existe).
-#   4. Secretos de DB en /srv/cartones-secrets/{db_user,db_password}.txt
-#      con chmod 600 y owner=usuario del runner.
-#   5. nginx config: ~/infra-claude/vps/conf.d/cartones-api.conf con
-#      proxy_pass http://cartones_backend:9001 (lo agrega el usuario).
-#   6. Cloudflare tunnel: hostname público apuntando a nginx-proxy:80.
-#
 # Variables y Secrets en GitHub (Settings → Secrets and variables → Actions):
-#   Variables: FRONTEND_URL, POSTGRES_DB
-#   Secrets:   ninguno por ahora (db creds son archivos del VPS).
+#   Variables requeridas:
+#     - FRONTEND_URL                  ej. https://rgq-cartones.eliasg.uk
+#     - POSTGRES_DB                   ej. cartones_prod
+#     - KEYCLOAK_ISSUER_URI           ej. https://keycloak.eliasg.uk/realms/cartones
+#     - KEYCLOAK_JWK_SET_URI          ej. http://keycloak:8080/realms/cartones/protocol/openid-connect/certs
+#   Variables opcionales (con defaults sanos en compose / application.yml):
+#     - APP_STORAGE_DIRECTORY         default /cartones/storage
+#     - HOST_STORAGE_DIR              default /opt/cartones/storage
+#     - APP_DB_SCHEMA                 default cartones
+#     - APP_PROCESO_ABANDONO_DIAS     default 30 (job marca SIMULADO/PENDIENTE > N días como ABANDONADO)
+#     - APP_RATE_LIMIT_UPLOAD_RPM     default 10
+#     - APP_RATE_LIMIT_COMPUTE_RPM    default 30
+#     - HEALTH_URL                    smoke test público end-to-end opcional
+#   Secrets: ninguno (las credenciales DB se leen de /srv/cartones-secrets/).
 
 on:
   push:
@@ -50,6 +53,24 @@ jobs:
             echo "::error::La network 'proxy' no existe. Crear ~/infra-claude/vps primero."
             exit 1
           }
+          # Keycloak tiene que estar arriba antes del backend — sin él, el
+          # backend falla al boot bajando el JWK set y nunca llega a healthy.
+          docker inspect -f '{{.State.Status}}' keycloak >/dev/null 2>&1 || {
+            echo "::error::El container 'keycloak' no está corriendo. Levantar infra-keycloak primero."
+            exit 1
+          }
+          # Storage del host con permisos correctos (UID 1000 del container).
+          # Sin esto el backend tira IllegalStateException al inicializar el
+          # directorio de storage y nunca llega a healthy.
+          test -d /opt/cartones/storage || {
+            echo "::error::Falta /opt/cartones/storage. Crear con: sudo mkdir -p /opt/cartones/storage && sudo chown 1000:1000 /opt/cartones/storage"
+            exit 1
+          }
+          OWNER=$(stat -c '%u:%g' /opt/cartones/storage)
+          if [ "$OWNER" != "1000:1000" ]; then
+            echo "::error::/opt/cartones/storage tiene owner $OWNER (esperado 1000:1000). Corregir con: sudo chown 1000:1000 /opt/cartones/storage"
+            exit 1
+          fi
 
       - name: Provisionar secretos de DB al checkout
         run: |
@@ -64,10 +85,10 @@ jobs:
           umask 077
           cat > .env <<EOF
           APP_PROFILE=prod
-          # 'update' porque el código de master no usa Flyway: Hibernate crea
-          # las tablas en el primer arranque. Cuando se promueva develop a
-          # master (Flyway + esquema normalizado), cambiar a 'validate'.
-          DB_DDL_AUTO=update
+          # `validate` porque `next` usa Flyway para migrar el schema. Si una
+          # entity está desincronizada con las migrations, el boot falla rápido
+          # en lugar de mutar la tabla silenciosamente.
+          DB_DDL_AUTO=validate
           DB_SHOW_SQL=false
           LOG_LEVEL=INFO
           OPEN_IN_VIEW=false
@@ -75,6 +96,17 @@ jobs:
           POSTGRES_DB=${{ vars.POSTGRES_DB }}
           SPRING_DATASOURCE_USERNAME=${DB_USER}
           SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
+          KEYCLOAK_ISSUER_URI=${{ vars.KEYCLOAK_ISSUER_URI }}
+          KEYCLOAK_JWK_SET_URI=${{ vars.KEYCLOAK_JWK_SET_URI }}
+          # Storage: defaults sanos en compose, pero seteamos explícitos para
+          # documentar el contrato. `HOST_STORAGE_DIR` aplica al bind mount;
+          # `APP_STORAGE_DIRECTORY` es lo que ve el JVM.
+          APP_STORAGE_DIRECTORY=${{ vars.APP_STORAGE_DIRECTORY || '/cartones/storage' }}
+          HOST_STORAGE_DIR=${{ vars.HOST_STORAGE_DIR || '/opt/cartones/storage' }}
+          APP_DB_SCHEMA=${{ vars.APP_DB_SCHEMA || 'cartones' }}
+          APP_PROCESO_ABANDONO_DIAS=${{ vars.APP_PROCESO_ABANDONO_DIAS || '30' }}
+          APP_RATE_LIMIT_UPLOAD_RPM=${{ vars.APP_RATE_LIMIT_UPLOAD_RPM || '10' }}
+          APP_RATE_LIMIT_COMPUTE_RPM=${{ vars.APP_RATE_LIMIT_COMPUTE_RPM || '30' }}
           EOF
 
       - name: Deploy con docker compose
@@ -101,8 +133,8 @@ jobs:
       - name: Smoke test funcional end-to-end
         # Cubre toda la cadena Cloudflare → tunnel → nginx-proxy → backend.
         # Variable HEALTH_URL: cualquier endpoint público que devuelva 2xx
-        # (ej: https://cartones.eliasg.uk/api/vendedores/test → []).
-        # El healthcheck del contenedor solo prueba TCP local; este step
+        # (ej: https://cartones.eliasg.uk/actuator/health → JSON con "UP").
+        # El healthcheck del contenedor solo prueba localhost; este step
         # detecta nginx hung, tunnel mal ruteado, DNS sin propagar, etc.
         if: vars.HEALTH_URL != ''
         run: |

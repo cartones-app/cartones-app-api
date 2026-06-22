@@ -1,0 +1,44 @@
+# Lo que NO debe ir al build context del Dockerfile. Evita inflar la imagen
+# y filtrar archivos sensibles. Espejo (con foco runtime) del .gitignore.
+
+# Build artifacts — el multi-stage build los regenera adentro.
+target/
+build/
+*.class
+*.jar
+
+# IDEs / OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Logs
+/logs/
+*.log
+
+# Secretos: NUNCA al build context. El compose los monta como Docker secrets
+# en runtime; el Dockerfile no los necesita.
+.env
+.env.*
+secrets_store/
+
+# Storage de archivos generados (PDFs) en dev. Es bind mount en runtime,
+# meterlo al context inflaría la imagen con basura local.
+storage/
+
+# Git internals
+.git/
+.gitignore
+.gitattributes
+
+# Compose configs (no se necesitan dentro de la imagen).
+docker-compose*.yml
+
+# Tests / CI / docs no van al runtime image.
+*.md
+.github/
+
+# Node / frontend artifacts si alguien clona algo cerca (defensa por las dudas).
+node_modules/

@@ -1,7 +1,7 @@
 package com.eliasgonzalez.cartones.vendedor.mapper;
 
-import com.eliasgonzalez.cartones.vendedor.entity.Vendedor;
-import com.eliasgonzalez.cartones.vendedor.dto.VendedorResponseDTO;
+import com.eliasgonzalez.cartones.vendedor.controller.dto.VendedorResponseDTO;
+import com.eliasgonzalez.cartones.vendedor.domain.ProcesoDistribucionVendedor;
 
 import java.util.Collections;
 import java.util.List;
@@ -9,34 +9,30 @@ import java.util.stream.Collectors;
 
 public class VendedorMapper {
 
-    // Constructor privado para evitar que se instancie esta clase de utilidad
     private VendedorMapper() {}
 
-    public static VendedorResponseDTO toVendedorResponseDTO(Vendedor vendedor) {
-        if (vendedor == null) {
+    public static VendedorResponseDTO toVendedorResponseDTO(ProcesoDistribucionVendedor registro) {
+        if (registro == null) {
             return null;
         }
 
-        return VendedorResponseDTO
-                .builder()
-                .id(vendedor.getId())
-                .nombre(vendedor.getNombre())
-                .deuda(vendedor.getDeuda())
-                .cantidadSenete(vendedor.getCantidadSenete())
-                .resultadoSenete(vendedor.getResultadoSenete())
-                .cantidadTelebingo(vendedor.getCantidadTelebingo())
-                .resultadoTelebingo(vendedor.getResultadoTelebingo())
-                .build();
+        return VendedorResponseDTO.builder()
+            .id(registro.getId())
+            .nombre(registro.getVendedor().getNombre())
+            .deuda(registro.getDeuda())
+            .cantidadSenete(registro.getCantidadSenete())
+            .resultadoSenete(registro.getResultadoSenete())
+            .cantidadTelebingo(registro.getCantidadTelebingo())
+            .resultadoTelebingo(registro.getResultadoTelebingo())
+            .build();
     }
 
-    public static List<VendedorResponseDTO> toVendedorResponseDTOs(List<Vendedor> vendedores) {
-        if (vendedores == null || vendedores.isEmpty()) {
+    public static List<VendedorResponseDTO> toVendedorResponseDTOs(List<ProcesoDistribucionVendedor> registros) {
+        if (registros == null || registros.isEmpty()) {
             return Collections.emptyList();
         }
-
-        // Streams para mapear de forma limpia y concisa
-        return vendedores.stream()
-                .map(VendedorMapper::toVendedorResponseDTO) // Reutilizamos la lógica del método anterior
-                .collect(Collectors.toList());
+        return registros.stream()
+            .map(VendedorMapper::toVendedorResponseDTO)
+            .collect(Collectors.toList());
     }
 }

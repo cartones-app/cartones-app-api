@@ -1,0 +1,55 @@
+# Perfil 'test': Postgres via Testcontainers (DynamicPropertySource sobrescribe
+# spring.datasource.* en cada subclase de AbstractPostgresIT).
+# - Flyway se activa para cubrir las migraciones reales.
+# - Keycloak issuer/jwk dummy: el JwtDecoder se mockea en los tests con @MockBean.
+
+spring:
+  datasource:
+    # Sobrescrito por @DynamicPropertySource en AbstractPostgresIT.
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      data-source-properties:
+        # Mismo motivo que application.yml: las native queries del repo
+        # necesitan el search_path apuntando a `cartones` para resolver
+        # tablas sin prefijo de schema.
+        currentSchema: cartones
+
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        default_schema: cartones
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    schemas: cartones
+    default-schema: cartones
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://test-issuer/realms/test
+          jwk-set-uri: http://test-issuer/realms/test/protocol/openid-connect/certs
+
+app:
+  cors:
+    origins: http://localhost:3000
+  storage:
+    # Para tests que levantan el contexto completo (sin @TempDir explícito):
+    # default tmp del sistema para no contaminar la raíz del repo si algún
+    # test instancia GeneradorPdfService vía Spring sin override.
+    directory: ${java.io.tmpdir}/cartones-test
+
+logging:
+  level:
+    com.eliasgonzalez.cartones: WARN
+    org.springframework.web: WARN
+    org.springframework.security: WARN
+    org.testcontainers: WARN
+    com.github.dockerjava: WARN

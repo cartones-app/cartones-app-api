@@ -1,0 +1,48 @@
+# ===========================================
+# PERFIL DEV (Calidad de vida)
+# ===========================================
+
+spring:
+  # Habilitar colores ANSI en consola
+  output:
+    ansi:
+      enabled: ALWAYS
+
+  # Mostrar errores completos en navegador
+  web:
+    resources:
+      cache:
+        period: 0  # Desactivar cache web
+
+  # Keycloak como Authorization Server
+  # issuer-uri: URL pública del realm (usada para validar el claim 'iss' del JWT)
+  # jwk-set-uri: URL interna (usada por el backend para obtener las claves públicas)
+  # Sin defaults: deben venir de variables de entorno también en dev (ver .env.example).
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI}
+          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI}
+
+server:
+  error:
+    include-message: always
+    include-binding-errors: always
+    include-stacktrace: always
+
+# Trazas profundas de SQL (valores de parámetros)
+logging:
+  level:
+    org.hibernate.orm.jdbc.bind: TRACE
+
+# ===========================================
+# openflags — dev en container
+# ===========================================
+# Cuando el backend corre adentro del JAR (docker compose, sin bind-mount del
+# código), classpath:flags.yml vive dentro del archive y WatchService no puede
+# observarlo. Lo mismo que aplica en prod. Sin esto, el bootstrap de Spring
+# explota con "Flag file 'classpath:flags.yml' is inside a JAR…".
+openflags:
+  file:
+    watch-enabled: false

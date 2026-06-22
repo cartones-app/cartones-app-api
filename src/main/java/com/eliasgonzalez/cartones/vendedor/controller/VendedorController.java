@@ -1,48 +1,44 @@
 package com.eliasgonzalez.cartones.vendedor.controller;
 
-import com.eliasgonzalez.cartones.shared.exception.ExcelProcessingException;
-import com.eliasgonzalez.cartones.vendedor.dto.VendedorResponseDTO;
-import com.eliasgonzalez.cartones.vendedor.interfaces.IVendedorService;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import java.util.List;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.List;
+import com.eliasgonzalez.cartones.common.logging.LogSanitizer;
+import com.eliasgonzalez.cartones.common.util.MultipartFileValidator;
+import com.eliasgonzalez.cartones.vendedor.controller.dto.CargaVendedoresResponseDTO;
+import com.eliasgonzalez.cartones.vendedor.controller.dto.VendedorResponseDTO;
+import com.eliasgonzalez.cartones.vendedor.service.IVendedorService;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/vendedores")
 @Slf4j
-@CrossOrigin(origins = "${app.cors.origins}")
 public class VendedorController {
 
     private final IVendedorService vendedorService;
 
     @GetMapping("/{procesoId}")
-    public ResponseEntity<List<VendedorResponseDTO>> listarVendedoresValidos (
-            @PathVariable (name = "procesoId") String procesoIdRecibido
-    ){
-
+    public ResponseEntity<List<VendedorResponseDTO>> listarVendedoresValidos(
+            @PathVariable(name = "procesoId") String procesoIdRecibido) {
+        log.debug("GET /api/vendedores/{}", LogSanitizer.safe(procesoIdRecibido));
         return ResponseEntity.ok(vendedorService.listarVendedoresValidos(procesoIdRecibido));
     }
 
     @PostMapping(value = "/carga", consumes = "multipart/form-data")
-    public ResponseEntity<String> cargarVendedoresDesdeExcel(
+    public ResponseEntity<CargaVendedoresResponseDTO> cargarVendedoresDesdeExcel(
             @RequestParam("file") MultipartFile file) {
 
-        // PRE-VALIDACIÓN: Antes de tocar el InputStream
-        if (file == null || file.isEmpty()) {
-            log.error("El archivo recibido es nulo o está vacío.");
-            throw new ExcelProcessingException("El archivo recibido es nulo o está vacío.", List.of());
-        }
+        log.debug(
+                "POST /api/vendedores/carga - archivo: {}",
+                file != null ? LogSanitizer.safe(file.getOriginalFilename()) : "null");
+        MultipartFileValidator.validarXlsx(file);
 
-        String procesoIdCreado = vendedorService.iniciarProceso();
-        vendedorService.procesarExcel(file, procesoIdCreado);
-
-        return ResponseEntity.ok(procesoIdCreado);
+        return ResponseEntity.ok(vendedorService.cargarDesdeExcel(file));
     }
-
-
 }

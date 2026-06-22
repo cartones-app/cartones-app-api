@@ -1,0 +1,23 @@
+# ===========================================
+# PERFIL LOCAL — desarrollo sin Keycloak
+# ===========================================
+# Activa LocalSecurityConfig: todas las peticiones permitidas sin autenticación.
+# Usar solo en desarrollo local cuando no se quiere levantar Keycloak.
+#
+# Arranque: mvn spring-boot:run -Dspring.profiles.active=local,dev
+#           o: SPRING_PROFILES_ACTIVE=local,dev
+
+spring:
+  output:
+    ansi:
+      enabled: ALWAYS
+
+server:
+  error:
+    include-message: always
+    include-binding-errors: always
+    include-stacktrace: always
+
+logging:
+  level:
+    org.hibernate.orm.jdbc.bind: TRACE

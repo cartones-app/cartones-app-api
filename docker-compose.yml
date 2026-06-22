@@ -45,29 +45,62 @@ services:
       APP_LOG_LEVEL: ${LOG_LEVEL}
       APP_OPEN_IN_VIEW: ${OPEN_IN_VIEW}
       APP_CORS_ORIGINS: ${FRONTEND_URL}
+      # Directorio DENTRO del container donde escribir los PDFs. Tiene que
+      # coincidir con el mount point del bind mount de `volumes:` (sino el
+      # backend escribe a un path efímero del container).
+      # ${VAR:-default} aplica el default tanto si VAR no existe como si
+      # está definida pero vacía — sin el `:`, vacío llegaría al container
+      # como string vacío y Spring usaría "" en lugar de defaultear.
+      APP_STORAGE_DIRECTORY: ${APP_STORAGE_DIRECTORY:-/cartones/storage}
+      # Schema dedicado para tablas/Flyway. Default `cartones`; se respeta
+      # APP_DB_SCHEMA si se setea (ver application.yml hikari + jpa + flyway).
+      APP_DB_SCHEMA: ${APP_DB_SCHEMA:-cartones}
 
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB}
-      # Las credenciales vienen del .env (que el workflow genera leyendo
-      # /srv/cartones-secrets/). Antes se usaba `configtree:/run/secrets/`
-      # con docker secrets, pero el backend corre como user no-root y los
-      # secrets se montan 0400 root:root → AccessDenied.
+      # Credenciales por env vars (no `configtree:/run/secrets/`): los docker
+      # secrets se montan 0400 root:root y el backend corre como UID 1000 no-root
+      # → AccessDenied. El workflow genera estas vars desde
+      # /srv/cartones-secrets/db_*.txt en el VPS; en dev local, scripts/dev-up.sh
+      # las exporta desde secrets_store/*.txt.
       SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
       SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
 
-    # En VPS: sin "ports:" — entra por nginx-proxy (red "proxy").
-    # Para dev local exponer descomentando.
-    # ports:
-    #   - "${PORT_BACKEND}:9001"
+      # Keycloak — corre externo a este compose (ver repo cartones-app/infra-keycloak).
+      # issuer-uri es lo que el backend valida contra el claim `iss` del JWT;
+      # jwk-set-uri es el endpoint que el backend usa para descargar las public keys.
+      # En dev local apuntan a localhost:8080 (Keycloak corriendo via infra-keycloak);
+      # en prod, al dominio público (ej. https://keycloak.midominio.com/...).
+      KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI}
+      KEYCLOAK_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI}
+
+    volumes:
+      # Bind mount a un directorio físico del host (no named volume) para que
+      # los archivos generados (PDFs) sean inspeccionables/backupeables desde
+      # afuera de Docker. El path dentro del container es /cartones/storage (WORKDIR
+      # del Dockerfile + estructura unificada). En VPS prod el host suele ser
+      # /opt/cartones/storage; en dev local lo pisa docker-compose.local.yml
+      # con ./storage.
+      - ${HOST_STORAGE_DIR:-/opt/cartones/storage}:/cartones/storage
+    # Sin `ports:` en el base: en VPS prod el backend NO publica nada al host
+    # — frontend y nginx-proxy lo alcanzan por DNS interno docker (`backend:9001`)
+    # y nadie de afuera del VPS debería poder conectar directo. El override
+    # docker-compose.local.yml lo expone para curl/admin en dev.
     depends_on:
       db:
         condition: service_healthy
     networks:
+      # Network del proyecto (db + backend, default).
       - default
+      # Network del stack nginx-proxy en el VPS prod. En esa misma network vive
+      # Keycloak (joinea `proxy` además de su `keycloak-internal` privada), así
+      # que el backend resuelve `keycloak:8080` por acá sin necesidad de una
+      # network separada. El override docker-compose.local.yml redefine `proxy`
+      # como no-externa y agrega `keycloak-proxy` para apuntar a la red de
+      # infra-keycloak local.
       - proxy
-    # Healthcheck básico TCP — el código de master no expone /actuator/health.
-    # Cuando se promueva develop a master, cambiar a wget /actuator/health.
+    # Healthcheck por /actuator/health
     healthcheck:
-      test: ["CMD-SHELL", "nc -z localhost 9001 || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9001/actuator/health | grep -q '\"status\":\"UP\"'"]
       interval: 20s
       timeout: 5s
       retries: 6
@@ -89,8 +122,8 @@ secrets:
 
 networks:
   default:
-    # Red interna del compose para que el backend hable con db.
+  # Network externa creada por el stack nginx-proxy en el VPS prod (compartida
+  # con el frontend Y con Keycloak). En dev local NO existe — el override
+  # docker-compose.local.yml la redefine como no-externa.
   proxy:
-    # Network externa creada por ~/infra-claude/vps (nginx-proxy + cloudflared).
-    # nginx-proxy hace proxy_pass http://cartones_backend:9001 según conf.d/<app>.conf
     external: true

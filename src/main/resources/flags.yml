@@ -1,0 +1,59 @@
+# Feature flags evaluadas con openflags (https://github.com/eliasss3990/openflags).
+#
+# El archivo se carga al startup y se recarga en caliente cuando cambia
+# (WatchService). En prod (application-prod.yml) se setea
+# openflags.file.watch-enabled=false porque el classpath:flags.yml vive
+# dentro del launcher JAR y WatchService no puede observar entries de un
+# archive — con watch activo dentro del JAR el starter lanza IOException.
+# El starter (rc2+) extrae el resource a un temp file 0600 solo con watch=false.
+#
+# Para sobreescribir valores en runtime sin rebuild, montar un volumen con
+# un flags.yml externo y apuntar openflags.file.path en application-*.yml.
+#
+# Alternativa runtime (preferida): el admin puede pisar cualquier flag desde
+# /api/admin/feature-flags (solo rol ADMIN). El override vive en la tabla
+# flag_override y tiene prioridad sobre este YAML. El default acá sigue
+# siendo el fallback cuando se borra el override.
+
+flags:
+  # ============================================================================
+  # Excel processing — exposición de detalles de error
+  # ============================================================================
+  excel.expose-error-details:
+    type: boolean
+    value: true
+    enabled: true
+    description: >
+      Si true, ExcelProcessingException incluye la lista de errores de validación
+      (campo `details` en la respuesta 422). Útil para que el operador corrija
+      el Excel ("fila X / vendedor Y inválido"). Si false, solo se devuelve el
+      mensaje genérico y los detalles quedan en logs server-side.
+
+  # ============================================================================
+  # Gating de páginas del frontend — controlado desde /admin/feature-flags.
+  # Cuando un page.X.enabled es false, el sidebar oculta el item y el acceso
+  # directo a la URL muestra un cartel de "Página deshabilitada".
+  # ============================================================================
+  page.upload.enabled:
+    type: boolean
+    value: true
+    enabled: true
+    description: Habilita la página /upload (Nueva distribución).
+
+  page.mis-distribuciones.enabled:
+    type: boolean
+    value: true
+    enabled: true
+    description: Habilita la página /mis-distribuciones.
+
+  page.configuracion.enabled:
+    type: boolean
+    value: true
+    enabled: true
+    description: Habilita la página /configuracion.
+
+  page.ruta.enabled:
+    type: boolean
+    value: true
+    enabled: true
+    description: Habilita la página /ruta (Recorrido de ruta).

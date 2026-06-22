@@ -1,0 +1,151 @@
+# ===========================================
+# Configuración Base - Cartones Backend
+# ===========================================
+
+server:
+  # Headers del request (cookies + JWT + propaganda de proxies reversos) pueden
+  # superar fácil el default 8KB de Tomcat cuando el JWT viaja por Cloudflare/
+  # Vercel/Railway y la cookie de sesión de NextAuth tiene los claims cifrados.
+  # 32KB deja margen sobrado sin riesgo real de DoS (un single connector con
+  # threads virtuales no se ve afectado por buffers de este tamaño).
+  # Sin esto, Tomcat corta al parsear y devuelve 400 con body vacío.
+  max-http-request-header-size: 32KB
+
+spring:
+  application:
+    name: cartones-backend
+
+  # ===========================================
+  # Java 21 Virtual Threads (Concurrencia)
+  # ===========================================
+  threads:
+    virtual:
+      enabled: true
+
+  # Configuración de Base de Datos
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+      connection-timeout: 30000
+      max-lifetime: 1800000
+      data-source-properties:
+        # search_path del PG driver. Necesario para que las native queries del
+        # repo (sin prefix de schema) resuelvan contra `cartones`. Hibernate
+        # `default_schema` solo aplica a queries generadas por él (JPQL/HQL),
+        # no a las native queries — esas ejecutan el SQL literal y caen en el
+        # search_path default (`public`).
+        currentSchema: ${APP_DB_SCHEMA:cartones}
+
+  # Configuración de JPA/Hibernate
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: validate
+    show-sql: ${APP_SHOW_SQL:false}
+    properties:
+      hibernate:
+        format_sql: ${APP_SHOW_SQL:false}
+        default_schema: ${APP_DB_SCHEMA:cartones}
+    open-in-view: ${APP_OPEN_IN_VIEW:false}
+
+  # Flyway — migraciones versionadas de BD
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    baseline-version: 0
+    validate-on-migrate: true
+    # Schema dedicado para aislar las tablas de la app de Keycloak en Postgres compartido.
+    schemas: ${APP_DB_SCHEMA:cartones}
+    default-schema: ${APP_DB_SCHEMA:cartones}
+
+  # Configuración de Jackson
+  jackson:
+    time-zone: UTC
+    serialization:
+      write-dates-as-timestamps: false
+
+  # Límites de multipart (uploads)
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: ${APP_MULTIPART_MAX_FILE_SIZE:10MB}
+      max-request-size: ${APP_MULTIPART_MAX_REQUEST_SIZE:11MB}
+      file-size-threshold: 1MB
+
+# Configuración de CORS
+app:
+  cors:
+    origins: ${APP_CORS_ORIGINS:http://localhost:3000}
+  storage:
+    directory: ${APP_STORAGE_DIRECTORY:storage}
+
+# Configuración de Logging
+logging:
+  level:
+    com.eliasgonzalez.cartones: ${APP_LOG_LEVEL:INFO}
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+# ===========================================
+# Spring Boot Actuator - Observabilidad
+# ===========================================
+management:
+  endpoints:
+    web:
+      exposure:
+        # Exponer endpoints de salud, métricas y Prometheus
+        include: health,info,metrics,prometheus
+      base-path: /actuator
+
+  endpoint:
+    health:
+      # Mostrar detalles de health checks (se restringe en prod)
+      show-details: always
+      probes:
+        enabled: true
+
+    prometheus:
+      enabled: true
+
+    metrics:
+      enabled: true
+
+  # Health indicators
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
+    db:
+      enabled: true
+    diskspace:
+      enabled: true
+
+  # Configuración de métricas
+  metrics:
+    enable:
+      jvm: true
+      process: true
+      system: true
+      http: true
+      logback: true
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+    tags:
+      application: ${spring.application.name}
+      environment: ${spring.profiles.active:default}
+
+# ===========================================
+# openflags — feature flags vía YAML
+# ===========================================
+openflags:
+  provider: file
+  file:
+    path: classpath:flags.yml
+    watch-enabled: true
+  metrics:
+    enabled: true
+    tag-flag-key: true
